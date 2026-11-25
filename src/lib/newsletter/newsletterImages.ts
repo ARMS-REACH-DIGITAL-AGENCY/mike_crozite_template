@@ -46,9 +46,20 @@ export type Shooter = (picture: Picture) => Promise<Buffer>;
 /** The shared art: Oswald (the board's face), the ASB medallion and the Gazette's banner art. */
 export type Assets = { fontCss: string; medallion: string; bannerArt: string };
 
+// Bump when an existing banner needs to be regenerated rather than accepted
+// just because an object exists in S3.
+export const GAZETTE_BANNER_ART_VERSION = 'masthead-v2';
+export function currentGazetteBanner(metadata: Record<string, string> | undefined): boolean {
+  return metadata?.['gazette-render-version'] === GAZETTE_BANNER_ART_VERSION;
+}
+
 export const ASSET_PATHS = { font: 'fonts/oswald-latin.woff2', medallion: 'img/splash-sponsors/brands/asb-medallion.png', bannerArt: 'img/newsletter/gazette-banner-blank.jpg' } as const;
 export async function loadAssets(read: (publicPath: string) => Promise<Buffer>): Promise<Assets> {
   const [font, medallion, art] = await Promise.all([read(ASSET_PATHS.font), read(ASSET_PATHS.medallion), read(ASSET_PATHS.bannerArt)]);
+  // Never embed a successful HTML response (or an empty/truncated file) as JPEG.
+  if (art.length < 4 || art[0] !== 0xff || art[1] !== 0xd8 || art[2] !== 0xff) {
+    throw new Error('Invalid Gazette masthead JPEG: ' + ASSET_PATHS.bannerArt);
+  }
   return {
     fontCss: `@font-face{font-family:Oswald;font-weight:200 700;src:url(data:font/woff2;base64,${font.toString('base64')}) format('woff2')}`,
     medallion: 'data:image/png;base64,' + medallion.toString('base64'),
@@ -58,9 +69,9 @@ export async function loadAssets(read: (publicPath: string) => Promise<Buffer>):
 
 // Every page says when it is ready: fonts and images loaded, long school names
 // shrunk to fit their space (class "nm" with a max-width).
-const READY = `<script>Promise.all([document.fonts.ready,...Array.from(document.images).map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r}))]).then(()=>{`
+const READY = `<script>const failedRequiredArt=[];Promise.all([document.fonts.ready,...Array.from(document.images).map(async i=>{try{await i.decode();if(!i.naturalWidth||!i.naturalHeight)throw new Error('empty image');}catch{if(i.hasAttribute('data-required-art'))failedRequiredArt.push(i.getAttribute('data-required-art'));}})]).then(()=>{`
   + `for(const e of document.querySelectorAll('.nm')){const m=parseFloat(e.style.maxWidth);let s=parseFloat(getComputedStyle(e).fontSize);while(m&&e.scrollWidth>m&&s>13){s-=1;e.style.fontSize=s+'px';}}`
-  + `window.__ready=true;});</script>`;
+  + `window.__newsletterImageError=failedRequiredArt.join(', ');window.__ready=true;});</script>`;
 const ready = (html: string) => html.replace('</body>', READY + '</body>');
 
 const PAIRS = [[1, 2], [3, 4], [5, 6], [7, 8]] as const;
@@ -70,12 +81,18 @@ const iso = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v)).sl
 async function bracketRows(db: ImageDatabase, season: string): Promise<Row[]> {
   return (await db.query('SELECT stage, region, round, series_no, game_no, game_id, week, game_end_date, status, home_hsid, away_hsid, home_seed, away_seed, home_runs, away_runs, winner_hsid, home_school_name, away_school_name FROM public.master_bracket WHERE season_key=$1', [season])).rows;
 }
-/** Each team's series record before a game: its series' earlier games that have a winner. */
-function seriesRecord(bracket: Row[], g: Row, hsid: number): string {
+/**
+ * Each team's series record as it stands on the board's day (Pete, Nov 25 2026: the
+ * series score is always the current one): every game of its series that is over by
+ * then, the game on the board included once it is final. A 1-1 series reads 1-1 on
+ * the Sunday it was evened, never the 1-0 it was before that game.
+ */
+function seriesRecord(bracket: Row[], g: Row, hsid: number, asOf: string): string {
   if (!g || g.stage !== 'bracket') return '';
-  const earlier = bracket.filter(r => r.stage === 'bracket' && r.region === g.region && r.round === g.round && r.series_no === g.series_no && Number(r.week) < Number(g.week) && r.winner_hsid != null);
-  const w = earlier.filter(r => Number(r.winner_hsid) === hsid).length;
-  return `${w}-${earlier.length - w}`;
+  const over = bracket.filter(r => r.stage === 'bracket' && r.region === g.region && r.round === g.round && r.series_no === g.series_no
+    && Number(r.week) <= Number(g.week) && r.winner_hsid != null && iso(r.game_end_date) <= asOf);
+  const w = over.filter(r => Number(r.winner_hsid) === hsid).length;
+  return `${w}-${over.length - w}`;
 }
 
 /** The Digest's board for each school (Pete, Nov 24-25 2026): its game, then the 7 closest schools' games. */
@@ -91,7 +108,7 @@ export async function dailyBoardPictures(db: ImageDatabase, o: { date: string; s
   }
   const side = (game: Row, which: 'home' | 'away'): BoardSide => {
     const hsid = Number(game[which + '_hsid']);
-    return { seed: seedOf.get(hsid) ?? null, name: String(game[which + '_label'] ?? ''), series: seriesRecord(bracket, byGame.get([game.week, game.region, game.game_id].join('/'))!, hsid),
+    return { seed: seedOf.get(hsid) ?? null, name: String(game[which + '_label'] ?? ''), series: seriesRecord(bracket, byGame.get([game.week, game.region, game.game_id].join('/'))!, hsid, o.date),
       innings: (game[which + '_innings'] || []).map(String), runs: game[which + '_runs'] ?? '' };
   };
   const nearbyOf = new Map<number, number[]>();
@@ -119,7 +136,7 @@ export function gazetteBannerPicture(hsid: number, logo: string | null, assets: 
   const img = logo ? `<img src="${logo}" style="position:absolute;max-width:${BANNER_BOX.w}px;max-height:${BANNER_BOX.h}px;left:${BANNER_BOX.cx}px;top:${BANNER_BOX.cy}px;transform:translate(-50%,-50%)">` : '';
   return { kind: 'banner', file: `${hsid}.png`, selector: '#banner', width: 1200, height: 279, transparent: false,
     html: ready(`<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#fff}</style></head><body><div id="banner" style="position:relative;width:1200px;height:279px;overflow:hidden">`
-      + `<img src="${assets.bannerArt}" width="1200" height="279" style="display:block">${img}</div></body></html>`) };
+      + `<img data-required-art="Gazette masthead" src="${assets.bannerArt}" width="1200" height="279" style="display:block">${img}</div></body></html>`) };
 }
 export const schoolLogoUrl = (hsid: number) => `${TEAM_LOGO_S3_BASE}/schools/${hsid}.png`;
 
@@ -150,7 +167,7 @@ export async function bracketMadnessPictures(db: ImageDatabase, o: { date: strin
   const games = week.filter(r => scores.has(`${r.region}/${r.game_id}`));
   const side = (g: Row, which: 'home' | 'away'): BoardSide => {
     const s = scores.get(`${g.region}/${g.game_id}`)!;
-    return { seed: g[which + '_seed'] ?? null, name: String(s[which + '_label'] ?? ''), series: seriesRecord(bracket, g, Number(g[which + '_hsid'])),
+    return { seed: g[which + '_seed'] ?? null, name: String(s[which + '_label'] ?? ''), series: seriesRecord(bracket, g, Number(g[which + '_hsid']), o.date),
       innings: (s[which + '_innings'] || []).map(String), runs: s[which + '_runs'] ?? '' };
   };
   const region = (n: number, home: number | null) => ({ label: 'Region ' + n,

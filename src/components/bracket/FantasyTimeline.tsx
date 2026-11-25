@@ -247,13 +247,11 @@ function Slide({ index, slide, me, week, onTap, playing, onWeekEnd }: {
   const title = day?.title || slide.title;
   const summary = day?.summary || slide.summary;
   const oppLabel = slide.opponent ? shortName(index.schools[slide.opponent]?.[0] || 'Opponent') : 'Opponent';
-  // Replaying Game 2 must show the 1-0 series as it stood then, not a
-  // later 2-1 outcome. Count the selected game's win only on its FINAL recap.
-  const settled = slide.cards.filter((c) => c.game && c.state === 'final'
-    && (c.week < week || (c.week === week && (!day || day.day === 'Final'))));
-  const wins = settled.filter((c) => c.game?.[6] === me).length;
-  const losses = settled.filter((c) => c.game?.[6] != null && c.game?.[6] !== me).length;
-  const series = seriesStatus({ round: slide.round, done: settled, wins, losses }, schoolName, oppLabel);
+  // The eyebrow's series score is always the series as it stands now, on
+  // every slide, even one replaying Game 1 (Pete, Nov 25 2026: an old 0-0
+  // in Week 3 is wrong). The game and inning the slide tells sit on the line
+  // below it; the story's own text still tells the series as it stood then.
+  const series = seriesStatus(slide, schoolName, oppLabel);
 
 
   return (
@@ -662,6 +660,8 @@ export default function FantasyTimeline() {
         .yft-round-slide .yft-story { left:3%; width:61%; padding:0 8px; }
         .yft-round-slide .yft-story p { display:block; flex:0 1 auto; min-height:0; overflow-y:auto; -webkit-line-clamp:unset; -webkit-box-orient:initial; scrollbar-width:thin; overscroll-behavior-y:contain; }
         .yft-eyebrow { display:flex; flex-wrap:wrap; align-items:baseline; column-gap:8px; row-gap:2px; }
+        /* The series now on top, the game and inning this slide tells under it. */
+        .yft-round-slide .yft-eyebrow { flex-direction:column; align-items:flex-start; row-gap:3px; }
         .yft-game-context { color:rgba(255,255,255,.8); font:500 10px/1.1 Oswald,sans-serif; text-transform:uppercase; white-space:nowrap; }
         .yft-dates { color:rgba(255,255,255,.82); font:500 12px/1.2 system-ui,sans-serif; }
         .yft-status { color:var(--gold,#d5b44a); font:700 13px/1 Oswald,sans-serif; letter-spacing:.03em; text-transform:uppercase; }

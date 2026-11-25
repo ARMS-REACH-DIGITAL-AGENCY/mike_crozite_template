@@ -157,7 +157,16 @@ async function main() {
 
   const receiptSource = fs.readFileSync(path.join(root, 'scripts/lib/transaction-news-receipt.ts'), 'utf8');
   const receiptModule = loadModule(receiptSource, { '../../src/lib/transactionNews': moduleObject.exports });
-  const { receiveMlbTransaction, RECEIVED_TRANSACTION_INSERT_SQL, RECEIVED_TRANSACTION_EXISTING_SQL } = receiptModule;
+  const { receiveMlbTransaction, mlbTransactionFetchKey, RECEIVED_TRANSACTION_INSERT_SQL, RECEIVED_TRANSACTION_EXISTING_SQL } = receiptModule;
+  let noId = 0;
+  const nextNoId = () => ++noId;
+  assert.equal(mlbTransactionFetchKey({id: 42, person: {id: 123}}, nextNoId), mlbTransactionFetchKey({id: 42, person: {id: 123}}, nextNoId));
+  assert.notEqual(mlbTransactionFetchKey({id: 42, person: {id: 123}}, nextNoId), mlbTransactionFetchKey({id: 42, person: {id: 124}}, nextNoId), 'one trade can move several players');
+  assert.notEqual(mlbTransactionFetchKey({}, nextNoId), mlbTransactionFetchKey({}, nextNoId), 'events without source IDs are not collapsed');
+  assert.match(RECEIVED_TRANSACTION_INSERT_SQL, /WHERE NOT EXISTS/);
+  assert.match(RECEIVED_TRANSACTION_INSERT_SQL, /pt\.payload->>'id' = \$6::jsonb->>'id'/);
+  assert.match(RECEIVED_TRANSACTION_INSERT_SQL, /pt\.payload#>>'\{person,id\}' = \$6::jsonb#>>'\{person,id\}'/);
+  assert.match(RECEIVED_TRANSACTION_EXISTING_SQL, /ORDER BY \(article\.uuid IS NOT NULL\) DESC/);
   const receivedRows = new Map();
   const receivedArticles = new Map();
   const receiptOrder = [];
@@ -220,6 +229,7 @@ async function main() {
   assert.equal(receivedRows.get(String(incoming.id)).committedAt, originalCommit, 'duplicate receipt does not rewrite transaction history');
   assert.equal(receiptNewsSelections, selectionsBeforeDuplicate, 'already published receipt is a news no-op');
 
+  // Same date/type/destination with a DISTINCT official event is not a duplicate.
   const retryIncoming = { ...incoming, id: 950799 };
   failReceiptNews = true;
   const failedPublication = await receiveMlbTransaction(receiptQuery, fixture.yatid, retryIncoming);
@@ -241,6 +251,11 @@ async function main() {
   assert.match(ingest, /await recordReceivedTransaction\(resolvedId, txn\)/);
   assert.match(ingest, /await recordReceivedTransaction\(dbPlayer\.playerid, txn, \(\) =>\s*saveSourceMap/);
   assert.match(ingest, /totalNewsFailures > 0/);
+  assert.match(ingest, /CREATE UNIQUE INDEX IF NOT EXISTS idx_player_transactions_dedup_v2/);
+  assert.match(ingest, /THEN payload->>'id' END/);
+  assert.match(ingest, /THEN payload#>>'\{person,id\}' END/);
+  assert(ingest.indexOf('CREATE UNIQUE INDEX IF NOT EXISTS idx_player_transactions_dedup_v2') < ingest.indexOf('DROP INDEX public.idx_player_transactions_dedup'), 'replacement is installed before the obsolete index is removed');
+  assert.match(ingest, /byId\.set\(mlbTransactionFetchKey\(txn,/);
   assert.match(fs.readFileSync(path.join(root, '.github/workflows/mlb-transactions-sync.yml'), 'utf8'), /npx tsx \.\/scripts\/sync-mlb-transactions\.ts/);
 
   const keptCalls = [];
