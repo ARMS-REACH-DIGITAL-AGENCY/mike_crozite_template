@@ -55,7 +55,9 @@ export type LbGame = [id: number, week: number, home: number, away: number, deci
 // a deterministic simulated W-L used only when the 2026 source record is absent.
 export type PlayerRow = [string, string, string, 0 | 1, number[] | 0, number[] | 0, number | null, number | null, ([number, number] | null)?, (0 | 1)?];
 // days: live boxes carry each day's real lines (the drawer's M-Su tabs).
-export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?: PlayerRow[][] };
+// The identity and outcome of every credited real club game, indexed by YAT ID and weekday.
+export type ClubGameFact = [game: string, won: 0 | 1, runDiff: number];
+export type SideBox = { p: PlayerRow[]; wl: [number, number]; rd?: number; days?: PlayerRow[][]; clubGames?: Record<string, ClubGameFact[][]> };
 // f (live boxes): is each inning's [offensive, pitching] run settled yet;
 // 1-8, then the W-L inning. Unsettled cells show who leads, but no run.
 // x contains full-precision OPS+/FIP- metrics for the drawer only; d remains

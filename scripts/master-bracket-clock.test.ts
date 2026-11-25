@@ -108,3 +108,34 @@ test('clock validation rejects a mismatched bracket day before any database work
     await assert.rejects(runSeason(pool, season, '2026-03-23', { base: 'https://replay.invalid', effectiveAt }), /explicit timezone/);
   }
 });
+
+// April 2026 regression: MLB's same gamePk moved from Tuesday to Thursday
+// after Tuesday's result was frozen. The Thursday game is a separate loss.
+test('a moved final club game is credited exactly once after the daily lock, including final ninth inning', async () => {
+  const live = feed();
+  live.lines = [];
+  live.clubs = { H: [[1, '820363', 1, 3]], A: [[1, '820363', 0, -3]] };
+  const request: typeof fetch = async () => new Response(JSON.stringify(live));
+  const db = database();
+  const run = (day: string, effectiveAt: string) => runSeason(db.pool, season, day, { base: 'https://replay.invalid', effectiveAt, request });
+  await run('2026-03-25', '2026-03-25T11:00:00Z');
+  const locked = structuredClone(db.row().box_in_progress!);
+  assert.deepEqual(locked.h.days?.[1][0][8], [1, 0]);
+  assert.deepEqual(locked.h.clubGames?.YAT000001[1], [['820363', 1, 3]]);
+  live.clubs = { H: [[3, '820363', 1, 3], [3, '820369', 0, -1]], A: [[3, '820363', 0, -3], [3, '820369', 1, 1], [3, 'other', 0, -2]] };
+  await run('2026-03-27', '2026-03-27T11:00:00Z');
+  const box = db.row().box_in_progress!;
+  assert.deepEqual(box.h.days?.[1], locked.h.days?.[1]);
+  assert.deepEqual(box.h.days?.[3][0][8], [0, 1]);
+  assert.deepEqual(box.h.p[0][8], [1, 1]);
+  assert.deepEqual(box.h.wl, [1, 1]);
+  assert.equal(box.h.rd, 2);
+  assert.deepEqual(box.a.wl, [1, 2]);
+  assert.equal(box.a.rd, -4);
+  assert.deepEqual(box.h.clubGames?.YAT000001[3], [['820369', 0, -1]]);
+  await run('2026-03-30', '2026-03-30T11:00:00Z');
+  assert.deepEqual(db.row().box_in_progress?.h.wl, [1, 1]);
+  assert.deepEqual(db.row().box_in_progress?.h.days?.[1][0][8], [1, 0]);
+  assert.deepEqual(db.row().innings?.slice(16, 18), [1, 0]);
+  assert.equal(db.row().winner_hsid, 1);
+});

@@ -26,7 +26,7 @@ import { LEVEL_AVERAGES } from '@/lib/bracket/levelAverages';
 import { battedIn, pitchedIn } from '@/lib/bracket/appearance';
 import { commissionerRuling } from '@/lib/bracket/commissioner';
 import { autoRuling } from '@/lib/bracket/autoRuling';
-import type { GameBox, GameRow, Index, PlayerRow, SeriesRow } from './gallery';
+import type { ClubGameFact, GameBox, GameRow, Index, PlayerRow, SeriesRow, SideBox } from './gallery';
 import { type LivePhase, setLiveInning } from './schoolSeason';
 import { setInAction } from './inAction';
 import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
@@ -165,7 +165,17 @@ export function applyLive(idx: Index, asof: string) {
 // /api/bracket/live; the bracket results job
 // (scripts/master-bracket-results.ts) runs it on the same answer to write
 // master_bracket.
-export function scoreLive(idx: Index, live: Live, asof: string) {
+export type FrozenClubDays = ReadonlyMap<number, { closed: number; box: GameBox }>;
+const sumClubGames = (games: ClubGameFact[]): [number, number] => {
+  const wins = games.reduce((n, g) => n + g[1], 0);
+  return [wins, games.length - wins];
+};
+function sameWl(a: [number, number], b: [number, number]) { return a[0] === b[0] && a[1] === b[1]; }
+
+// Once a real game is credited at a closed daily cutoff, its identity and
+// outcome remain there. A provider may subsequently move the same gamePk to
+// another date (e.g. a resumed game or doubleheader). Never credit it again.
+export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenClubDays = new Map()) {
   const start = idx.weeks[0][0];
   // asof is the bracket's day, which turns over at 4 a.m. Arizona time.
   const today = dayOf(asof, start);
@@ -207,15 +217,9 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
     cur.club = club || cur.club;
     days.set(day, cur);
   }
-  // A club's W-L over days [from, to].
-  const clubWl = (club: string, from: number, to: number): [number, number] => {
-    const games = (live.clubs[club] || []).filter(([d]) => d >= from && d <= to);
-    const w = games.filter((g) => g[2]).length;
-    return [w, games.length - w];
-  };
-  // A club's run differential over days [from, to] (games with a score).
-  const clubRunDiff = (club: string, from: number, to: number) =>
-    (live.clubs[club] || []).reduce((sum, [d, , , rd]) => (d >= from && d <= to ? sum + (rd ?? 0) : sum), 0);
+  const clubGamesOn = (club: string, day: number): ClubGameFact[] =>
+    (live.clubs[club] || []).filter(([d]) => d === day)
+      .map(([, game, won, rd]) => [game, won, rd ?? 0]);
 
   // In action today, for each school's drawer strip: its alumni with a game
   // today (the bracket's day) and those games' first pitches.
@@ -295,12 +299,16 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
     const f = Array.from({ length: 7 }, (_, d) => [posted(d), posted(d)] as [boolean, boolean]);
     const final = cur >= 7;
     const weekDone: [boolean, boolean] = [final, final];
-    const side = (h: number) => {
+    const saved = frozen.get(g[0]);
+    const side = (h: number, prior?: SideBox) => {
       const players = roster.get(String(h)) || [];
       const mine = lines.get(String(h)) || new Map();
       const days: PlayerLines[] = Array.from({ length: 7 }, () => new Map());
       const dayRows: PlayerRow[][] = Array.from({ length: 7 }, () => []);
       const weekRows: PlayerRow[] = [];
+      const clubGames: Record<string, ClubGameFact[][]> = {};
+      // Lookup by YAT ID rather than relying on roster sort order.
+      const frozenPlayers = (prior?.days || []).map(rows => new Map(rows.map(row => [row[0], row])));
       let wins = 0, losses = 0, runDiff = 0;
       for (const p of players) {
         // Off every team the whole week (released or a free agent before it,
@@ -311,6 +319,8 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
         const weekLv: LevelBuckets[] = [];
         const wl: [number, number] = [0, 0];
         let playerRunDiff = 0;
+        const credited = new Set<string>();
+        const gameFacts: ClubGameFact[][] = [];
         for (let d = 0; d < 7; d++) {
           // Never count or publish game lines from a future day. The live
           // feed may contain historical/replayed dates beyond this clock.
@@ -325,10 +335,26 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
             if (x.b) wb = add(wb, x.b);
             if (x.p) wp = add(wp, x.p);
           }
-          // That day's club result: 1-0 for a win, 0-1 for a loss, 0-0 off.
-          const dailyWl: [number, number] = reached ? clubWl(club, from + d, from + d) : [0, 0];
+          const closed = saved != null && d < saved.closed;
+          const old = closed ? frozenPlayers[d]?.get(p[0]) : undefined;
+          const oldGames = closed ? prior?.clubGames?.[p[0]]?.[d] : undefined;
+          // Legacy boxes lack game IDs. Backfill only when the source still
+          // reproduces their exact locked W-L; otherwise require verified
+          // historical evidence, rather than guess which game was counted.
+          const candidates = oldGames ?? (reached ? clubGamesOn(club, from + d) : []);
+          const games: ClubGameFact[] = [];
+          for (const fact of candidates) {
+            if (credited.has(fact[0])) continue;
+            credited.add(fact[0]);
+            games.push(fact);
+          }
+          const dailyWl = sumClubGames(games);
+          if (old && !sameWl(dailyWl, old[8] || [0, 0])) {
+            throw new Error('Locked club game identity cannot be reconciled: game ' + g[0] + ', player ' + p[0] + ', day ' + d);
+          }
+          gameFacts.push(games);
           wl[0] += dailyWl[0]; wl[1] += dailyWl[1];
-          if (reached) playerRunDiff += clubRunDiff(club, from + d, from + d);
+          playerRunDiff += games.reduce((sum, fact) => sum + fact[2], 0);
           dayRows[d].push(playerRow(p, x?.b || 0, x?.p || 0, dailyWl, x?.lv));
         }
         // A transfer or rehab assignment changes the counted club by day.
@@ -336,11 +362,12 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
         // same daily assignments, not use the final club for the whole week.
         wins += wl[0]; losses += wl[1];
         runDiff += playerRunDiff;
+        clubGames[p[0]] = gameFacts;
         weekRows.push(playerRow(p, wb, wp, wl, mergeBuckets(weekLv)));
       }
-      return { week: { days, wins, losses, runDiff } as SideWeek, weekRows, dayRows };
+      return { week: { days, wins, losses, runDiff } as SideWeek, weekRows, dayRows, clubGames };
     };
-    const home = side(g[2]), away = side(g[3]);
+    const home = side(g[2], saved?.box.h), away = side(g[3], saved?.box.a);
     const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? ruling(g, s, n) : undefined,
       [live.fans?.[String(g[2])]?.[week - 1] ?? 0, live.fans?.[String(g[3])]?.[week - 1] ?? 0]);
     // A week in progress counts only the posted runs; the week (8) and W-L
@@ -369,8 +396,8 @@ export function scoreLive(idx: Index, live: Live, asof: string) {
         : [round(i.homeOffense), round(i.awayOffense), round(i.homePitching), round(i.awayPitching)]),
       // Posted [offense, pitching] per inning 1-8, then the W-L inning.
       f: [...f, weekDone, weekDone],
-      h: { p: home.weekRows, wl: [home.week.wins, home.week.losses], rd: home.week.runDiff, days: home.dayRows },
-      a: { p: away.weekRows, wl: [away.week.wins, away.week.losses], rd: away.week.runDiff, days: away.dayRows },
+      h: { p: home.weekRows, wl: [home.week.wins, home.week.losses], rd: home.week.runDiff, days: home.dayRows, clubGames: home.clubGames },
+      a: { p: away.weekRows, wl: [away.week.wins, away.week.losses], rd: away.week.runDiff, days: away.dayRows, clubGames: away.clubGames },
     };
   };
 

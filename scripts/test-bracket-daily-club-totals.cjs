@@ -73,5 +73,13 @@ assert.deepEqual(friday.box.h.days[5][0][8],[0,0]);
 assert.deepEqual(friday.box.h.days[6][0][8],[0,0]);
 assert.deepEqual(singleClub.box.h.wl,[5,1]);
 assert.equal(singleClub.box.h.rd,15);
-assert.equal(digest(singleClub),'fe773ce17915ee3e3b8e63cdb87e54514c99757dd2a3bc5c244ff2e6c0ac6ce0','Entire single-club scoreboard and Stat Ledger match production 7ba0883');
+// PR 907: pin both the original public output and the full output including
+// the new per-player/day real-game identities. No prior score value may move.
+const legacy = structuredClone(singleClub);
+delete legacy.box.h.clubGames;
+delete legacy.box.a.clubGames;
+assert.equal(digest(legacy),'fe773ce17915ee3e3b8e63cdb87e54514c99757dd2a3bc5c244ff2e6c0ac6ce0','All existing single-club scoreboard and Stat Ledger values match production 7ba0883');
+assert.deepEqual(singleClub.box.h.clubGames,{[player]:[[],[['ny-18',1,2]],[['ny-19',1,2]],[['ny-20',1,5]],[['ny-21',1,2]],[['ny-22',0,-1]],[['823507',1,5]]]});
+assert.deepEqual(singleClub.box.a.clubGames,{});
+assert.equal(digest(singleClub),'88167302b1fd7cb6ae8ee238a719f0617d48a377605698c6be6ae2757ce5a79f','Full single-club output including credited game identities');
 console.log('PASS daily club transfers, off-day assignment, historical clock, and unchanged single-club scoring');

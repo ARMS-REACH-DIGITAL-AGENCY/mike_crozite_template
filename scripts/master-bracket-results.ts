@@ -58,7 +58,7 @@ import { Pool, type PoolClient } from 'pg';
 import { bracketOrder, pairEliminated } from '@/lib/bracket/engine';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { COMMISSIONER_DECISIONS } from '@/lib/bracket/commissioner';
-import { scoreLive, type Live } from '@/components/bracket/liveSeason';
+import { scoreLive, type Live, type FrozenClubDays } from '@/components/bracket/liveSeason';
 import { fetchBracketLiveBatches as fetchLive } from '@/lib/bracket/fetchLiveBatches';
 import type { GameBox, GameRow, Index, SeriesRow } from '@/components/bracket/gallery';
 import { tieNote } from '@/lib/bracket/tieNote';
@@ -185,7 +185,18 @@ function scoreGroup(season: Season, rows: Row[], rulings: Ruling[], live: Live, 
   const idx = buildIndex(season, rows);
   for (const k of Object.keys(COMMISSIONER_DECISIONS)) delete COMMISSIONER_DECISIONS[k];
   for (const r of rulings) COMMISSIONER_DECISIONS[`${r.week}:${r.home_hsid}:${r.away_hsid}`] = r.winner_hsid;
-  const boxes = scoreLive(idx, live, asof);
+  // Supply closed-day facts to the scorer before computing the weekly W-L,
+  // ninth inning and run-differential tiebreak. Copying daily drawers after
+  // scoring alone would leave the weekly totals based on different inputs.
+  const frozen: Map<number, { closed: number; box: GameBox }> = new Map();
+  for (const row of rows) {
+    if (row.locked_at || !row.computed_at || !row.box_in_progress) continue;
+    const weekStart = idx.weeks[row.week - 1]?.[0];
+    if (!weekStart) continue;
+    const closed = Math.max(0, Math.min(7, daysFrom(weekStart, bracketDay(Date.parse(row.computed_at)))));
+    if (closed) frozen.set(row.game_id, { closed, box: row.box_in_progress });
+  }
+  const boxes = scoreLive(idx, live, asof, frozen satisfies FrozenClubDays);
 
   const byId = new Map(rows.map((r) => [r.game_id, r]));
   const results: Result[] = [];
