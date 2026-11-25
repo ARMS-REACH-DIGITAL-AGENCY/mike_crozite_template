@@ -9,6 +9,10 @@ between steps unless a STOP condition below happens.
 3. Database: the isolated QA Neon branch via the Neon connector or a workspace secret (handoff §12). Before anything, print the endpoint host and confirm it is the QA branch, not production. If Postgres port 5432 is blocked, use the WebSocket `pg` shim (§12). Never Vercel env pull.
 4. Read the checkpoint: `SELECT report_date, phase FROM bracket_rehearsal_days WHERE season_key='2027' ORDER BY report_date DESC LIMIT 3;` The next day = last report_date + 1.
 
+5. Two tools the repo doesn't install (they came preinstalled in Claude's container):
+   - **`server-only`** (a Next.js marker; outside Next.js it must be an empty module). Use the repo's own pattern — `scripts/test-player-display.cjs` line 92 returns `{}` for `server-only`: put that in a small `--require` hook (e.g. `scripts/lib/stub-server-only.cjs`, commit it to the test branch) and run the audit/runner with `node --require ./scripts/lib/stub-server-only.cjs …` (or `NODE_OPTIONS="--require=…"` for tsx).
+   - **Playwright** for drawing pictures: `npm install --no-save playwright` then `npx playwright install --with-deps chromium`. `--no-save` keeps package.json and the lockfile untouched.
+
 ## B. For each day, in order (standing approval: 0 audit mismatches = approved by Pete)
 1. Score the day: `scripts/rehearse-production-bracket.ts --day <D> --reviewed-day <D-1> --season 2027 …` (rehearsal guide on the test branch).
 2. Audit it: `scripts/audit-production-rehearsal.ts` for that day. 0 mismatches → continue.
