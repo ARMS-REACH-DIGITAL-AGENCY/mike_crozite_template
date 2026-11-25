@@ -74,6 +74,25 @@ export function regionTopGames<R extends Record<string, unknown>>(rows: R[], hom
     .slice(0, max);
 }
 
+/**
+ * The 7 schools closest to the home school (Pete, Nov 25 2026; stored in
+ * school_nearest_schools from his sheet): each one's game that day, nearest
+ * first. A game already on the board (the home game, or two neighbors playing
+ * each other) is not shown twice, so the board can have fewer than 8 games.
+ */
+export function nearbyGames<R extends Record<string, unknown>>(rows: R[], home: R | null, nearby: number[]): R[] {
+  const key = (row: R) => [row.season_key, row.region, row.game_id].join('/');
+  const seen = new Set(home ? [key(home)] : []);
+  const out: R[] = [];
+  for (const hsid of nearby) {
+    const game = rows.find(row => Number(row.home_hsid) === hsid || Number(row.away_hsid) === hsid);
+    if (!game || seen.has(key(game))) continue;
+    seen.add(key(game));
+    out.push(game);
+  }
+  return out;
+}
+
 export function regionBoardHeight(games: number): number { return TOP + games * BLOCK + FOOT; }
 
 export function regionBoardHtml(input: RegionBoardInput): string {

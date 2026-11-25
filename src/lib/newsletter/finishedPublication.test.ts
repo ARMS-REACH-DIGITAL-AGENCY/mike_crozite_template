@@ -34,6 +34,7 @@ function database(facts = fixture()) {
     if (sql.includes(' FROM alumni_newsletter_control')) return { rows: [facts.control] };
     if (sql.includes(' FROM newsletter_favorites ')) return { rows: facts.selection.favorites.map(yatid => ({ yatid })) };
     if (sql.includes(' FROM user_scoreboard_schools ')) return { rows: facts.selection.picks };
+    if (sql.includes(' FROM school_nearest_schools ')) return { rows: (facts.selection.nearby || []).map(neighbor_hsid => ({ neighbor_hsid })) };
     for (const [name, rows] of Object.entries(facts.rows)) if (sql.includes(' FROM ' + name + ' ')) {
       if (name === 'daily_stat_lines') return { rows: rows.filter(row => values[1].includes(row.yatid)) };
       return { rows };
@@ -242,4 +243,16 @@ test('each favorite: name | game line, team | season line, (LEVEL) on a third li
   assert.match(html, />San Antonio Missions<\/span><\/td><td[^>]*><span class="fav-text">\.270\/\.329\/\.363<\/span>/);
   assert.match(html, /<tr><td[^>]*class="fav-team"[^>]*><span class="fav-text">\(DOUBLE-A\)<\/span><\/td>/);
   assert.match(html, /Season lines: batters AVG\/OBP\/SLG · pitchers ERA\/WHIP\/FIP/);
+});
+
+test('the scoreboard: home game first, then the 7 closest schools\' games, nearest first, none twice (Pete, Nov 25 2026)', () => {
+  const facts = fixture();
+  const g = (game_id: number, home_hsid: number, away_hsid: number, region = 7, runs = 0) => ({
+    stats_date: '2026-03-25', season_key: '2027', region, game_id, week: 1, home_hsid, away_hsid,
+    home_label: 'Home ' + home_hsid, away_label: 'Away ' + away_hsid, home_innings: [String(runs)], away_innings: ['0'], home_runs: runs, away_runs: 0, through_inning: 1, is_final: false });
+  // Neighbors nearest first: 23, 9655, 13562 (who plays 9655), 1450 (another region), 999 (no game today).
+  facts.selection.nearby = [23, 9655, 13562, 1450, 999];
+  facts.rows.daily_game_scores.push(g(601, 23, 8001), g(602, 9655, 13562), g(603, 1450, 8003, 2), g(604, 8004, 8005, 7, 9));
+  const keys = (renderFinishedEdition(facts).rowKeys.daily_game_scores as Array<{ key: unknown[] }>).map(k => k.key[3]);
+  assert.deepEqual(keys, [501, 601, 602, 603], 'home, then 23, then 9655 v 13562 once, then 1450; the high-scoring stranger is not shown');
 });
