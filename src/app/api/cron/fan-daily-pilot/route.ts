@@ -6,6 +6,8 @@ import { runBracketResultsJob } from '@/lib/bracket/resultsJob';
 import { publishNewsletterDay, readNewsletterReview, deliverNewsletterEdition } from '@/lib/newsletter/scheduledPublication';
 import { lookupGHLContactByEmail } from '@/lib/gohighlevel';
 import { sendDailyPilotEmail } from '@/lib/alumniEmailSender';
+import { createEditionPictureVerifier } from '@/lib/newsletter/pictureReadiness';
+import { getIngestAlertWebhookUrl, sendIngestAlert } from '@/lib/ingestAlerts';
 import { publishNewsletterPictures, type PictureRun } from '@/lib/newsletter/newsletterImagesServer';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -36,7 +38,7 @@ export async function GET(request:NextRequest){
   },runBracketResultsJob);
   // The editions' pictures (Pete, Nov 25 2026): each recipient school's Digest board, and
   // after a Sunday the Gazette's banner, team logos and boards, drawn and stored before
-  // the emails go out. A picture that fails is logged; the editions still go out.
+  // the emails go out. Only editions referencing failed or unavailable pictures are held.
   const {rows:fans}=await pool.query<{email:string;home_hsid:number|null}>("SELECT email,home_hsid FROM public.newsletter_recipients WHERE coalesce(email,'')<>'' ORDER BY email");
   const recipients=[...new Set(fans.map(f=>String(f.email).trim().toLowerCase()))];
   let pictures:PictureRun|{error:string};
@@ -46,6 +48,7 @@ export async function GET(request:NextRequest){
    pictures={error:error instanceof Error?error.message:String(error)};
   }
   console.log('[fan-daily-pilot] pictures',JSON.stringify({date,...('error' in pictures?pictures:{drawn:pictures.drawn.length,failed:pictures.failed,skipped:pictures.skipped})}));
+  const verifyPictures=createEditionPictureVerifier(new Set('failed' in pictures ? pictures.failed.map(p=>p.key) : []));
   const result=[];
   for(const period of publication.periods) for(const email of recipients){
    try {
@@ -53,15 +56,32 @@ export async function GET(request:NextRequest){
     result.push(await deliverNewsletterEdition(pool,edition,{
      lookupContact:lookupGHLContactByEmail,
      send:(contact,rendered,format)=>sendDailyPilotEmail(contact,rendered.subject,rendered.html,{format,text:rendered.text}),
-     domainVerified:process.env.YATSTATS_SENDING_DOMAIN_VERIFIED==='true',
+     domainVerified:process.env.YATSTATS_SENDING_DOMAIN_VERIFIED==='true',verifyPictures,
     }));
    } catch(error) {
     result.push({email,cadence:period.cadence,status:'error',error:error instanceof Error?error.message:String(error)});
    }
   }
+  const held=result.filter(row=>row.status==='blocked_newsletter_pictures');
+  if(held.length || ('error' in pictures) || ('failed' in pictures && pictures.failed.length)){
+   const affected=held.map(row=>({cadence:row.cadence,hsid:'hsid' in row?row.hsid:null,images:'failedImages' in row?row.failedImages:[]}));
+   const details={date,affected,failedKeys:'failed' in pictures?pictures.failed.map(p=>p.key):[],generationFailed:'error' in pictures};
+   console.error('[newsletter-picture-alert]',JSON.stringify(details));
+   try {
+    if(!getIngestAlertWebhookUrl()) throw new Error('Newsletter operations alert webhook not configured');
+    await sendIngestAlert({event:'yatstats_ingest_failed',job:'newsletter-pictures',occurredAt:new Date().toISOString(),error:'Newsletter images unavailable; affected editions held',details});
+   } catch {
+    // Alert the operator through the existing email transport if the operations webhook is unavailable.
+    try {
+     const admin=await lookupGHLContactByEmail(process.env.NEWSLETTER_ALERT_EMAIL || 'pcdaction@gmail.com');
+     if(!admin || !await sendDailyPilotEmail(admin,'YAT?STATS newsletter picture alert '+date,'',{format:'text',text:JSON.stringify(details,null,2)}))
+      console.error('[newsletter-picture-alert] operator delivery failed');
+    } catch { console.error('[newsletter-picture-alert] operator delivery failed'); }
+   }
+  }
   const failures=result.filter(row=>!['queued','previously_queued','not_subscribed'].includes(row.status));
   console.log('[fan-daily-pilot] stored editions',JSON.stringify({date,season:seasons[0].season_key,periods:publication.periods,results:result.map(({email,cadence,status})=>({email,cadence,status}))}));
-  return NextResponse.json({ok:failures.length===0,date,season:seasons[0].season_key,periods:publication.periods,result},{status:failures.length?503:200});
+  return NextResponse.json({ok:failures.length===0,date,season:seasons[0].season_key,periods:publication.periods,publicationReport:publication.publications,result},{status:failures.length?503:200});
  } catch(error) {
   console.error('[fan-daily-pilot] publication failure',error instanceof Error?error.message:String(error));
   return NextResponse.json({ok:false,date,error:'publication_failed'},{status:500});

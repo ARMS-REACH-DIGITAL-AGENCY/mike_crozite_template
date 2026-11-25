@@ -157,18 +157,19 @@ const SQL_CARDS = `card AS (
 // arrived AFTER their 2026 game dates, so exclude that cutoff only when
 // historicalReplay is explicitly selected for the isolated rehearsal.
 // Fantasy scores still come exclusively from stored master_bracket results.
-const SQL_FROZEN = (from: string, to: string, cutoff: string, historicalReplay = false) => `src AS (
+const SQL_FROZEN = (from: string, to: string, cutoff: string, historicalReplay = false, sourceIds?: string[]) => `src AS (
   SELECT DISTINCT ON (g.yatid, s.source_game_id, s.stat_type) s.*, g.yatid, g.line_summary
     FROM public.stat_lines s
     JOIN public.player_game_logs g ON s.source = 'mlb_api' AND g.id::text = s.source_line_id
    WHERE s.game_date BETWEEN DATE ${lit(from)} AND DATE ${lit(to)}
      AND s.removed_at IS NULL AND s.hold_reason IS NULL AND s.is_final
      AND g.yatid IS NOT NULL
+     ${sourceIds === undefined ? '' : 'AND s.id::text IN (SELECT jsonb_array_elements_text(' + dollar(JSON.stringify(sourceIds)) + '::jsonb))'}
      ${historicalReplay ? '' : 'AND g.created_at <= TIMESTAMPTZ ' + lit(cutoff)}
    ORDER BY g.yatid, s.source_game_id, s.stat_type, g.updated_at DESC)`;
 
-function sqlDailyStatLines(day: string, historicalReplay: boolean, seasonLines: SeasonLines = {}, nextGames: NextGames = {}) {
-  return `WITH ${SQL_MLB}, ${SQL_CARDS}, ${SQL_FROZEN(day, day, cutoffOf(day), historicalReplay)},
+function sqlDailyStatLines(day: string, historicalReplay: boolean, seasonLines: SeasonLines = {}, nextGames: NextGames = {}, sourceIds?: string[]) {
+  return `WITH ${SQL_MLB}, ${SQL_CARDS}, ${SQL_FROZEN(day, day, cutoffOf(day), historicalReplay, sourceIds)},
 season_line AS (SELECT key AS yatid, value AS v FROM jsonb_each(${dollar(JSON.stringify(seasonLines))}::jsonb)),
 next_game AS (SELECT key AS yatid, value AS v FROM jsonb_each(${dollar(JSON.stringify(nextGames))}::jsonb)),
 x AS (
@@ -230,8 +231,8 @@ function savedRoster(rows: Row[], week: number, field: number[]): StoredRoster[]
   });
 }
 
-function sqlWeeklyPlayerLines(season: string, week: number, monday: string, sunday: string, saved: StoredRoster[], historicalReplay: boolean) {
-  return `WITH ${SQL_MLB}, ${SQL_FROZEN(monday, sunday, cutoffOf(sunday), historicalReplay)},
+function sqlWeeklyPlayerLines(season: string, week: number, monday: string, sunday: string, saved: StoredRoster[], historicalReplay: boolean, sourceIds?: string[]) {
+  return `WITH ${SQL_MLB}, ${SQL_FROZEN(monday, sunday, cutoffOf(sunday), historicalReplay, sourceIds)},
 roster AS (
   SELECT hsid,yatid AS pid,yatid,nm,lower(nm) AS last,'' AS first,lvl,'' AS team,club_wl,box
     FROM jsonb_to_recordset(${dollar(JSON.stringify(saved))}::jsonb)
@@ -279,8 +280,8 @@ SELECT DATE ${lit(monday)}, hsid::integer, pid, yatid, DATE ${lit(sunday)}, ${li
 
 /** Every player's week from his own game lines, for the Gazette's Superfan favorites
  * (Pete, Nov 24 2026): one shared row per player, so a fan's favorites are read, never computed. */
-function sqlWeeklyPlayerTotals(season: string, week: number, monday: string, sunday: string, historicalReplay: boolean) {
-  return `WITH ${SQL_CARDS}, ${SQL_FROZEN(monday, sunday, cutoffOf(sunday), historicalReplay)},
+function sqlWeeklyPlayerTotals(season: string, week: number, monday: string, sunday: string, historicalReplay: boolean, sourceIds?: string[]) {
+  return `WITH ${SQL_CARDS}, ${SQL_FROZEN(monday, sunday, cutoffOf(sunday), historicalReplay, sourceIds)},
 played AS (
   SELECT s.yatid,
          (array_agg(s.teamid::text ORDER BY s.game_date DESC, s.source_game_id DESC))[1] AS teamid,
@@ -349,6 +350,7 @@ type BoxRow = {
 export type PublicationInput = {
   season: Season; rows: Row[]; lines: InLine[]; date?: string; week?: number;
   cutoffAt: string; historicalReplay?: boolean;
+  publicationSourceIds?: string[];
   /** Digest season line per YAT ID: b = 'AVG | OBP | SLG', p = 'ERA | WHIP' (from the card's own season stats). */
   seasonLines?: SeasonLines;
   nextGames?: NextGames;
@@ -638,7 +640,7 @@ export function buildNewsletterPublication(input: PublicationInput) {
        OR EXISTS (SELECT 1 FROM public.daily_game_stories WHERE stats_date = DATE ${lit(day)})
        OR EXISTS (SELECT 1 FROM public.newsletter_transactions WHERE cadence = 'daily' AND period_start = DATE ${lit(day)})
      THEN RAISE EXCEPTION 'The Daily for ${day} is already published: it is never written twice'; END IF; END $$`,
-    sqlDailyStatLines(day, historicalReplay, seasonLines, nextGames),
+    sqlDailyStatLines(day, historicalReplay, seasonLines, nextGames, input.publicationSourceIds),
     sqlPeriodTransactions('daily', day, day, historicalReplay),
     `INSERT INTO public.daily_game_scores (stats_date, season_key, region, game_id, week, home_hsid, away_hsid, home_label, away_label,
        home_innings, away_innings, home_runs, away_runs, through_inning, is_final)
@@ -677,8 +679,8 @@ export function buildNewsletterPublication(input: PublicationInput) {
      THEN RAISE EXCEPTION 'The Weekly for ${monday} is already published: it is never written twice'; END IF;
      IF EXISTS (SELECT 1 FROM public.master_bracket WHERE season_key = ${S} AND stage IN ('bracket','total_runs','season_championship','world_series') AND week = ${week} AND (status <> 'final' OR locked_at IS NULL))
      THEN RAISE EXCEPTION 'Week ${week}: unfinished matches; no ready edition'; END IF; END $$`,
-    sqlWeeklyPlayerLines(season.season_key, week, monday, sunday, weeklyRoster, historicalReplay),
-    sqlWeeklyPlayerTotals(season.season_key, week, monday, sunday, historicalReplay),
+    sqlWeeklyPlayerLines(season.season_key, week, monday, sunday, weeklyRoster, historicalReplay, input.publicationSourceIds),
+    sqlWeeklyPlayerTotals(season.season_key, week, monday, sunday, historicalReplay, input.publicationSourceIds),
     sqlPeriodTransactions('weekly', monday, sunday, historicalReplay),
     `INSERT INTO public.weekly_box_scores (season_key, region, game_id, week, period_start, period_end, round_name, game_no, home_hsid, away_hsid,
        home_name, away_name, home_runs, away_runs, winner_hsid, decision, line_score, home_batting, away_batting, home_pitching, away_pitching, extra_base_hits, home_story, away_story)
@@ -771,6 +773,27 @@ function canonicalLinesSql(from: string, to: string, historical: boolean) {
   ORDER BY s.yatid,s.game_date,s.source_game_id,s.stat_type`;
 }
 
+export type CanonicalPublicationLine = { source_id: string; line: InLine };
+export function partitionPublicationSource(source: CanonicalPublicationLine[], rosterIds: ReadonlySet<string>) {
+  const included: CanonicalPublicationLine[] = [];
+  const skipped: { source_id: string; yatid: string; hsid: string; game_date: string; reason: string }[] = [];
+  for (const row of source) {
+    const l = row.line;
+    const identity = Boolean(l[2] && l[9] && /^YAT\d{6,}$/.test(l[1]));
+    const counting = Array.isArray(l[11]) && l[11].every(n => n != null && Number.isSafeInteger(n) && n >= 0);
+    if (!identity || !counting) {
+      if (rosterIds.has(l[1])) throw new Error(!identity
+        ? 'Canonical publication source lacks player identity or official level: ' + l[1]
+        : 'Canonical publication source lacks a required counting fact; no missing value is replaced with zero: ' + l[1]);
+      skipped.push({ source_id: row.source_id, yatid: l[1], hsid: l[0], game_date: l[3],
+        reason: !identity ? 'unmatched_non_tournament_identity_or_level' : 'unmatched_non_tournament_counting_fact' });
+      continue;
+    }
+    included.push(row);
+  }
+  return { included, skipped };
+}
+
 export async function prepareNewsletterPublication(db: Pick<PoolClient, 'query'>, opts: PeriodOptions) {
   const { rows: [season] } = await db.query<Season>(
     'SELECT season_key,is_test,opening_day::text,last_day::text,weeks,regions,schools_per_region FROM public.fantasy_seasons WHERE season_key=$1', [opts.season]);
@@ -784,11 +807,15 @@ export async function prepareNewsletterPublication(db: Pick<PoolClient, 'query'>
   const { rows } = await db.query<Row>(
     'SELECT season_key,stage,region,round,round_name,series_no,game_no,game_id,week,home_hsid,away_hsid,home_seed,away_seed,home_school_name,away_school_name,status,innings,home_runs,away_runs,winner_hsid,decided_by,decided_note,locked_at::text,computed_at::text,box FROM public.master_bracket WHERE season_key=$1 ORDER BY week,region,game_id FOR SHARE', [opts.season]);
   const { rows: source } = await db.query<{ source_id: string; line: InLine }>(canonicalLinesSql(from,to,opts.historicalReplay===true));
-  if (source.some(r => !r.line[2] || !r.line[9])) throw new Error('Canonical publication source lacks player identity or official level');
-  if (source.some(r => r.line[11].some(n=>n==null||!Number.isSafeInteger(n)||n<0))) {
-    throw new Error('Canonical publication source lacks a required counting fact; no missing value is replaced with zero');
-  }
-  const lines = source.map(r=>r.line);
+  const field = [...new Set(rows.filter(r => r.stage === 'bracket' && r.week === 1)
+    .flatMap(r => [r.home_hsid, r.away_hsid]))].filter((h): h is number => h != null);
+  if (field.length !== season.regions * season.schools_per_region) throw new Error('Incomplete opening field for source validation');
+  const reportWeek = Math.floor(dayOf(from, season.opening_day) / 7) + 1;
+  const rosterIds = new Set(savedRoster(rows, reportWeek, field).map(p => p.yatid));
+  const { included, skipped } = partitionPublicationSource(source, rosterIds);
+  // Valid non-field favorites remain available to the SuperFan newsletter; no skipped line enters either publication SQL or fantasy facts.
+  const lines = included.map(r => r.line);
+  const publicationSourceIds = included.map(r => r.source_id);
   const dayPlayers = [...new Set(lines.map(l=>l[1]))];
   const seasonLines = opts.date ? await digestSeasonLines(db, dayPlayers) : {};
   const nextGames = opts.date ? await digestNextGames(db, dayPlayers) : {};
@@ -800,7 +827,7 @@ export async function prepareNewsletterPublication(db: Pick<PoolClient, 'query'>
       "SELECT hsid::text, NULLIF(regexp_replace(btrim(hslocation), '\\s*,\\s*', ', '), '') AS city, NULLIF(btrim(nickname), '') AS nickname FROM public.tbc_schools_raw WHERE hsid = ANY($1::int[])", [fieldIds]);
     for (const r of info) schoolInfo[r.hsid] = { city: r.city, nickname: r.nickname };
   }
-  const plan = buildNewsletterPublication({season,rows,lines,date:opts.date,week,cutoffAt:opts.cutoffAt,historicalReplay:opts.historicalReplay,seasonLines,nextGames,schoolInfo});
+  const plan = buildNewsletterPublication({season,rows,lines,date:opts.date,week,cutoffAt:opts.cutoffAt,historicalReplay:opts.historicalReplay,seasonLines,nextGames,schoolInfo,publicationSourceIds});
   const canonicalSourceHash = createHash('sha256').update(JSON.stringify(source)).digest('hex');
   const pitcherGames = new Set(lines.filter(l=>l[4]==='p').map(l=>l[1]+':'+l[6]));
   const expectedDailyStats = lines.filter(l=>!(l[4]==='b' && l[5][0]===0 && pitcherGames.has(l[1]+':'+l[6]))).length;
@@ -810,9 +837,9 @@ export async function prepareNewsletterPublication(db: Pick<PoolClient, 'query'>
   END $$`);
   for (const statements of [plan.daily, plan.weekly]) if (statements.length) {
     statements[statements.length-1] = statements[statements.length-1].replace('jsonb_build_object(',
-      `jsonb_build_object('canonical_source_hash',${lit(canonicalSourceHash)},'source_lines',${source.length},`);
+      `jsonb_build_object('canonical_source_hash',${lit(canonicalSourceHash)},'source_lines',${source.length},'published_source_lines',${included.length},'skipped_unmatched',${dollar(JSON.stringify(skipped))}::jsonb,`);
   }
-  return {...plan, canonicalSourceHash, sourceLines: source.length};
+  return {...plan, canonicalSourceHash, sourceLines: source.length, skippedUnmatched: skipped};
 }
 
 async function existingPublication(db: Pick<PoolClient,'query'>, opts: PeriodOptions) {
@@ -846,7 +873,7 @@ async function existingPublication(db: Pick<PoolClient,'query'>, opts: PeriodOpt
     throw new Error('Existing edition is partial; no publication retry can overwrite it');
   }
   return {alreadyPublished:true,season:opts.season,cadence,periodStart:start,periodEnd:end,cutoffAt:opts.cutoffAt,
-    counts,canonicalSourceHash:ready.row_counts.canonical_source_hash||null,sourceLines:ready.row_counts.source_lines??null};
+    counts,canonicalSourceHash:ready.row_counts.canonical_source_hash||null,sourceLines:ready.row_counts.source_lines??null,skippedUnmatched:ready.row_counts.skipped_unmatched??[]};
 }
 
 /** All writes use one guarded transaction. This function never sends mail. */
@@ -869,7 +896,7 @@ async function publishPeriod(pool: Pool, opts: PeriodOptions) {
     for(const sql of statements) await db.query(sql);
     await db.query('COMMIT');
     begun=false;
-    return {alreadyPublished:false,...plan.report,canonicalSourceHash:plan.canonicalSourceHash,sourceLines:plan.sourceLines,historicalSourceAvailableToday:opts.historicalReplay===true};
+    return {alreadyPublished:false,...plan.report,canonicalSourceHash:plan.canonicalSourceHash,sourceLines:plan.sourceLines,skippedUnmatched:plan.skippedUnmatched,historicalSourceAvailableToday:opts.historicalReplay===true};
   } catch(error) {
     if(begun) await db.query('ROLLBACK');
     throw error;
