@@ -154,3 +154,20 @@ Pete's editorial instructions (verbatim) are in `docs/handoff-2026-11-25.md` §6
 8. Pre-send rendering check (360px, with/without style block, size < 102 KB) and real-client screenshots.
 
 A new agent with this file, `CLAUDE.md`, `AGENTS.md`, `docs/2026-rehearsal-handoff.md` (test branch) and issue #901 can resume without this conversation.
+
+## 11. PrestoSports integration and coverage audit (Pete, Nov 25 2026)
+
+Status: license agreement not signed yet. Pete asked Presto to change the License
+Details "AI Services" box from "Not permitted" to permitting Anthropic (Claude,
+Claude Code, Claude API) and OpenAI (ChatGPT) for developing and operating the
+platform and newsletters, including recaps of YATSTATS fantasy games, with no
+training on Licensed Data. AI training or fine-tuning stays "Not permitted".
+Pricing offer expires 11/27/2026. License scope: baseball, NCAA, NAIA, NJCAA,
+CCCAA (3C2A), NWAC and summer collegiate leagues; no high school customers.
+
+Pete's plan once signed, as soon as possible:
+1. Wire up the API and ingest 2027 college rosters (they arrive daily before the season) and stats.
+2. Match each Presto player ID to a YAT ID in `yat_registry_ids` (one outside number = one person). Pete sets the matching rule (open task "Presto matching rule"); never fuzzy-guess.
+3. **Coverage audit:** for every school in the tournament, list its active 2027 alumni by level, and whether we have a daily stats source for each (MLB/MiLB feed, Presto, INDY, INTERNATIONAL, ...). Report each school's coverage %, worst first, by region and seed.
+4. Before the tournament starts (Feb 1 2027) Pete can swap out a school whose alumni we can't cover for one we can. After the start, no swaps. Run the audit repeatedly as rosters arrive until the field is locked.
+5. Tour rules: add a data-coverage disclaimer so the tournament and sweepstakes continue on our best available statistics (draft wording to be reviewed by Pete's attorney).
