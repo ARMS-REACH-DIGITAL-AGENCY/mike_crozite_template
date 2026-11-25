@@ -1,8 +1,10 @@
 name: Publish Verified School Logos - Production S3
 
-# One manual launch on Easter-NEWS. No web application deployment required:
+# Manual launch or daily resumption on Easter-NEWS. No web application deployment required:
 # the site reads the published S3 schools/{hsid}.png assets.
 on:
+  schedule:
+    - cron: "43 9 * * *"
   workflow_dispatch:
     inputs:
       school_scope:
@@ -40,7 +42,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-2
-      HS_LOGO_SCOPE: ${{ inputs.school_scope }}
+      HS_LOGO_SCOPE: ${{ inputs.school_scope || 'linked' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -75,7 +77,8 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: us-west-2
       HSIDS: ${{ matrix.hsids }}
-      CHOICE: ${{ inputs.confirm }}
+      CHOICE: ${{ github.event_name == 'schedule' && 'PUBLISH' || inputs.confirm }}
+      HS_LOGO_SCOPE: ${{ inputs.school_scope || 'linked' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -107,7 +110,7 @@ jobs:
             fetch_logos.log
   exceptions-only:
     needs: [plan, collect-verify-publish]
-    if: ${{ always() && needs.plan.result == 'success' && inputs.confirm == 'PUBLISH' && needs.plan.outputs.batches != '0' }}
+    if: ${{ always() && needs.plan.result == 'success' && (github.event_name == 'schedule' || inputs.confirm == 'PUBLISH') && needs.plan.outputs.batches != '0' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -125,3 +128,28 @@ jobs:
           name: hs-logo-exceptions-only
           if-no-files-found: ignore
           path: hs_logo_exceptions_only.csv
+
+  final-coverage:
+    needs: [plan, collect-verify-publish, exceptions-only]
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+      HS_LOGO_SCOPE: ${{ inputs.school_scope || 'linked' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install boto3 requests pillow numpy scipy 'psycopg[binary]'
+      - name: Reinventory production S3 after all batches
+        run: |
+          python scripts/plan_hs_logo_publication.py
+          python -c 'import json; p=json.load(open("bulk_logo_plan.json")); print("## High-school logo coverage\\n\\n- Target campuses: %d\\n- Live logos: %d\\n- Still missing: %d\\n- Staged awaiting verification: %d\\n\\nHome Schooled (15322) is a non-campus category, not a missing school logo." % (p["total_canonical"],p["live_existing"],p["remaining"],p["already_staged_for_verification"]))' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hs-logo-final-coverage
+          path: bulk_logo_plan.json
