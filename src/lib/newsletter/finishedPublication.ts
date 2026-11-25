@@ -4,6 +4,7 @@
 // finished lines, scores and table cells are printed without scoring math.
 // No raw feeds, scorer, sender, sponsor lookup or database writes belong here.
 import { createHash } from 'node:crypto';
+import { newsletterImageBase } from './newsletterImages';
 import { renderWeeklyGazetteLayout, type GazetteBatRow, type GazettePitchRow, type GazetteTables } from './weeklyGazetteLayout';
 import { nearbyGames, regionTopGames } from './regionBoard';
 import { renderDailyDigestLayout, type DailyDigestPresentation, type DailyDigestSlot } from './dailyDigestLayout';
@@ -269,9 +270,10 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
         seriesNote: publicText(story.series_note, 'series note'), shoutouts: (story.shout_outs || []).map((row: Row) => publicText(row.line, 'shout-out')) } : undefined,
       slots: scores.slots,
       // The board picture, drawn once per school per day by
-      // scripts/newsletter-draw-boards.ts (Pete's Nov 13 Gazette design).
-      scoreboardImage: process.env.NEWSLETTER_BOARD_IMAGE_BASE && scores.slots.length
-        ? `${process.env.NEWSLETTER_BOARD_IMAGE_BASE.replace(/\/$/, '')}/${iso(ready.period_start)}/${Number(recipient.home_hsid)}.png` : undefined,
+      // src/lib/newsletter/newsletterImages.ts (the 4 a.m. job; scripts/newsletter-draw-pictures.ts locally) (Pete's Nov 13 Gazette design).
+      // The live asset bucket unless the environment names another copy (newsletterImageBase).
+      scoreboardImage: newsletterImageBase('board') && scores.slots.length
+        ? `${newsletterImageBase('board')}/${iso(ready.period_start)}/${Number(recipient.home_hsid)}.png` : undefined,
       // The approved masthead logo is served by the site itself (public/img/newsletter).
       presentation: { mastheadLogo: link ? new URL('/img/newsletter/daily-digest-logo.png', link).toString() : undefined, ...presentation, links: { home: section('sec-active'), favorites: section('sec-active'),
         scoreboard: section('sec-fantasy'), ...presentation.links } },
@@ -287,24 +289,23 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     const side = ownSide as 'home' | 'away';
     const story = game[side + '_story'];
     if (!story?.title || !Array.isArray(story.paragraphs)) throw new Error('The Gazette letter is missing from the finished week');
-    // The banner (drawn once per school by scripts/newsletter-draw-gazette-banner.ts)
+    // The banner (drawn once per school by src/lib/newsletter/newsletterImages.ts)
     // and the home school's final board of the week (the Digest's board for the
     // Sunday) come from the saved images unless the facts name others (Pete,
     // Nov 25 2026: the Week 4 TEST 2 proof).
     const homeHsid = Number(recipient.home_hsid);
-    const imageBase = (env: string | undefined) => (env ? env.replace(/\/$/, '') : '');
-    const bannerBase = imageBase(process.env.NEWSLETTER_GAZETTE_BANNER_BASE), boardBase = imageBase(process.env.NEWSLETTER_BOARD_IMAGE_BASE);
-    const madnessBase = imageBase(process.env.NEWSLETTER_BRACKET_MADNESS_BASE);
-    const leadersBase = imageBase(process.env.NEWSLETTER_RUNS_LEADERBOARD_BASE);
+    const bannerBase = newsletterImageBase('banner'), boardBase = newsletterImageBase('board');
+    const madnessBase = newsletterImageBase('bracket');
+    const leadersBase = newsletterImageBase('leaders');
     const gz: NonNullable<NonNullable<FinishedEdition['presentation']>['gazette']> = {
       mastheadUrl: bannerBase ? `${bannerBase}/${homeHsid}.png` : undefined,
       scoreboardUrl: boardBase ? `${boardBase}/${iso(ready.period_end)}/${homeHsid}.png` : undefined,
       scoreboardAlt: `${publicText(school.split(' — ')[0], 'school')} and its 7 closest schools: final scores for the week`,
       ...(facts.presentation?.gazette || {}),
     };
-    // Team logos: small PNGs drawn once per week by scripts/newsletter-draw-team-logos.ts
+    // Team logos: small PNGs drawn once per week by src/lib/newsletter/newsletterImages.ts
     // (email clients cannot all show the site's WebP art), unless the facts name a base.
-    const logoBase = imageBase(process.env.NEWSLETTER_TEAM_LOGO_BASE);
+    const logoBase = newsletterImageBase('logo');
     const logo = (teamid: unknown) => (!/^\d{1,10}$/.test(String(teamid ?? '')) ? undefined
       : gz.teamLogoBase ? gz.teamLogoBase + String(teamid) : logoBase ? `${logoBase}/${String(teamid)}.png` : undefined);
     const favoriteIds = new Set(facts.selection.favorites);
@@ -360,7 +361,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       favorites: recipient.is_superfan && favRows.length ? { count: favRows.length, tables: { batters: fBat, pitchers: fPit, teamOpsPlus: null, teamFipMinus: null, totalWl: [0, 0] } } : undefined,
       links: { statDrawer: drawer },
       // Bracket Madness: four two-region boards drawn once a week by
-      // scripts/newsletter-draw-bracket-madness.ts; the fan's own pair is drawn per
+      // src/lib/newsletter/newsletterImages.ts; the fan's own pair is drawn per
       // school (its game first, between the red rules) and comes first.
       bracketMadness: madnessBase ? (() => {
         const pairs = [[1, 2], [3, 4], [5, 6], [7, 8]];
@@ -371,7 +372,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
         return { subtitle: `Week ${Number(ready.week)} finals: upsets first, then the top seeds, up to eight series in every region. Each series is best of three.`,
           boards: boards.map(b => ({ url: b.url, alt: `Bracket Madness: Region ${b.pair[0]} and Region ${b.pair[1]} final scores` })) };
       })() : undefined,
-      // The Total Runs Leaderboards, drawn once a week by scripts/newsletter-draw-runs-leaderboard.ts
+      // The Total Runs Leaderboards, drawn once a week by src/lib/newsletter/newsletterImages.ts
       // (the fan's own pair once per school, its row between the red rules), the fan's pair first.
       // Runs-only (knocked-out) games start in Week 4 (master_bracket stage 'total_runs').
       runsLeaders: leadersBase ? (() => {

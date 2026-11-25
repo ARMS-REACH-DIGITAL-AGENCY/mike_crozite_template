@@ -20,11 +20,12 @@ compared with this file first, and only Pete changes the design.
 3. **Transactions** (when a favorite had one), the same style.
 4. **The Fantasy Desk**: the day's story in the small size, left-justified,
    series note, shout-outs.
-5. **The region scoreboard picture**, full width: Pete's Nov 13 Gazette board
+5. **The scoreboard picture**, full width: Pete's Nov 13 Gazette board
    design (nl/gz3/55.png on branch `ccr-0ad18095-umgndf`), drawn once per
-   school per day by `scripts/newsletter-draw-boards.ts`: the fan's home
-   school's game first, framed by red lines, then 7 more games (for now the
-   region's top scores; later the 7 schools nearest the home school).
+   school per day by the 4 a.m. job (`src/lib/newsletter/newsletterImages.ts`)
+   and stored in the asset bucket under `newsletter/digest/<day>/<hsid>.png`:
+   the fan's home school's game first, framed by red lines, then the games of
+   the 7 schools closest to it (`school_nearest_schools`, Pete's sheet).
 6. Daily Double, Connect, Contribute, Remember, footer (content to come).
 
 White page, no cream or gray background anywhere.
