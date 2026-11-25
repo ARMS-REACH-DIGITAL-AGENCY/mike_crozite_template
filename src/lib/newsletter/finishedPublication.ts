@@ -289,6 +289,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     const imageBase = (env: string | undefined) => (env ? env.replace(/\/$/, '') : '');
     const bannerBase = imageBase(process.env.NEWSLETTER_GAZETTE_BANNER_BASE), boardBase = imageBase(process.env.NEWSLETTER_BOARD_IMAGE_BASE);
     const madnessBase = imageBase(process.env.NEWSLETTER_BRACKET_MADNESS_BASE);
+    const leadersBase = imageBase(process.env.NEWSLETTER_RUNS_LEADERBOARD_BASE);
     const gz: NonNullable<NonNullable<FinishedEdition['presentation']>['gazette']> = {
       mastheadUrl: bannerBase ? `${bannerBase}/${homeHsid}.png` : undefined,
       scoreboardUrl: boardBase ? `${boardBase}/${iso(ready.period_end)}/${homeHsid}.png` : undefined,
@@ -358,6 +359,18 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
           ...pairs.filter(p => p !== mine).map(p => ({ url: `${dir}/pair-${p[0]}-${p[1]}.png`, pair: p }))];
         return { subtitle: `Week ${Number(ready.week)} finals: upsets first, then the top seeds, up to eight series in every region. Each series is best of three.`,
           boards: boards.map(b => ({ url: b.url, alt: `Bracket Madness: Region ${b.pair[0]} and Region ${b.pair[1]} final scores` })) };
+      })() : undefined,
+      // The Total Runs Leaderboards, drawn once a week by scripts/newsletter-draw-runs-leaderboard.ts
+      // (the fan's own pair once per school, its row between the red rules), the fan's pair first.
+      // Runs-only (knocked-out) games start in Week 4 (master_bracket stage 'total_runs').
+      runsLeaders: leadersBase ? (() => {
+        const pairs = [[1, 2], [3, 4], [5, 6], [7, 8]];
+        const mine = pairs.find(p => p.includes(Number(game.region)));
+        const dir = `${leadersBase}/${iso(ready.period_end)}`;
+        const boards = [...(mine ? [{ url: `${dir}/${homeHsid}.png`, pair: mine }] : []),
+          ...pairs.filter(p => p !== mine).map(p => ({ url: `${dir}/pair-${p[0]}-${p[1]}.png`, pair: p }))];
+        return { subtitle: `Season runs through Week ${Number(ready.week)}.${Number(ready.week) >= 4 ? ' Knocked-out schools keep scoring here.' : ''}`,
+          boards: boards.map(b => ({ url: b.url, alt: `Total Runs Leaderboard: Region ${b.pair[0]} and Region ${b.pair[1]}` })) };
       })() : undefined });
     rowKeys.weekly_player_lines = rows.weekly_player_lines.map(row => [iso(row.period_start), row.hsid, row.yatid, row.team_name]);
     rowKeys.weekly_box_scores = rows.weekly_box_scores.map(row => [row.season_key, row.region, row.game_id]);

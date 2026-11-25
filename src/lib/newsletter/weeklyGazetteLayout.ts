@@ -53,6 +53,12 @@ export type WeeklyGazetteInput = {
   links: { statDrawer?: string };
   /** Bracket Madness (Pete, Nov 25 2026): the week's two-region boards, the fan's own pair first. */
   bracketMadness?: { subtitle: string; boards: { url: string; alt: string }[] };
+  /**
+   * It Ain't Over Till It's Over (the Week 4 TEST 2 proof): the four Total Runs
+   * Leaderboards, the fan's own pair first, each with the coming week's spotlight
+   * runs-only matchups under it (Pete, Nov 25 2026).
+   */
+  runsLeaders?: { subtitle: string; boards: { url: string; alt: string; spotlights?: { title: string; text: string }[] }[] };
 };
 
 const esc = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;' }[c]!));
@@ -127,6 +133,7 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
   const alumni = tables(input.alumni);
   const favs = input.favorites ? tables(input.favorites.tables) : null;
   const drawer = safeUrl(input.links.statDrawer);
+  const leaders = (input.runsLeaders?.boards || []).flatMap((b) => { const url = safeUrl(b.url); return url ? [{ ...b, url }] : []; });
   const madness = (input.bracketMadness?.boards || []).flatMap((b) => { const url = safeUrl(b.url); return url ? [{ url, alt: b.alt }] : []; });
   const html = [
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(input.subject)}</title><style>${STYLE}</style></head><body style="margin:0;background:#e3e5dc"><div style="max-width:720px;margin:0 auto;background:#ffffff;border-top:5px solid #19583f;color:#202820;font-family:Arial,Helvetica,sans-serif">`,
@@ -151,6 +158,11 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     madness.length ? `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:center">Bracket Madness Around the Country</h2>`
       + `<p style="margin:0 0 16px;text-align:center;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.bracketMadness!.subtitle)}</p>`
       + madness.map((b) => `<img src="${esc(b.url)}" width="600" alt="${esc(b.alt)}" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto 16px">`).join('') + `</div>` : '',
+    leaders.length ? `<div style="padding:26px 22px 24px;border-bottom:3px solid #202820"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:center">It Ain't Over Till It's Over</h2>`
+      + `<p style="margin:0 0 16px;text-align:center;font:13px Arial,Helvetica,sans-serif;color:#666">${esc(input.runsLeaders!.subtitle)}</p>`
+      + leaders.map((b) => `<img src="${esc(b.url)}" width="600" alt="${esc(b.alt)}" style="display:block;width:100%;max-width:600px;height:auto;margin:0 auto 12px">`
+        + (b.spotlights || []).map((m) => `<p style="margin:0 0 4px;font:bold 15px/1.35 Arial,Helvetica,sans-serif;color:#19583f">${esc(m.title)}</p>${P(m.text, ';font-size:15px;line-height:1.55')}`).join('')
+        + `<div style="height:14px"></div>`).join('') + `</div>` : '',
     `</div></body></html>`,
   ].filter(Boolean).join('\n');
   const text = [
@@ -161,6 +173,7 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     ...(input.transactions?.length ? ["YOUR FAVORITES' TRANSACTIONS", ...input.transactions.map((t) => `${day(t.date, { month: 'short', day: 'numeric' })}: ${t.text}`)] : []),
     drawer ? `See each day of the week in the stat drawer: ${drawer}` : '',
     ...(madness.length ? ['BRACKET MADNESS AROUND THE COUNTRY', input.bracketMadness!.subtitle, ...madness.map((b) => b.alt)] : []),
+    ...(leaders.length ? ["IT AIN'T OVER TILL IT'S OVER", input.runsLeaders!.subtitle, ...leaders.flatMap((b) => [b.alt, ...(b.spotlights || []).flatMap((m) => [m.title, m.text])])] : []),
   ].filter(Boolean).join('\n\n');
   return { html, text };
 }

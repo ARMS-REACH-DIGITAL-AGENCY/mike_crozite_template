@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFinishedEdition, renderFinishedEdition, stableJson, type FinishedEdition, type Row } from './finishedPublication';
-import { bracketMadnessGames } from './regionBoard';
+import { bracketMadnessGames, regionLeaders } from './regionBoard';
 
 function fixture(): FinishedEdition {
   const game = { stats_date: '2026-03-25', season_key: '2027', region: 7, game_id: 501, week: 1,
@@ -271,7 +271,7 @@ test('the Gazette shows the school\'s banner and its final board of the week (Pe
   facts.rows.weekly_box_scores = [{ period_start: '2026-03-23', season_key: '2027', region: 7, game_id: 385, home_hsid: 5004, away_hsid: 7,
     home_name: 'Hamilton', away_name: 'Other School', home_runs: 3, away_runs: 4, home_batting: {}, away_batting: {}, home_pitching: {}, away_pitching: {},
     home_story: { title: 'Hamilton falls to Other School, 4-3.', paragraphs: ['Leading the way for the Huskies: nobody yet.'] }, away_story: { title: 'x', paragraphs: [] } }];
-  const saved = { banner: process.env.NEWSLETTER_GAZETTE_BANNER_BASE, board: process.env.NEWSLETTER_BOARD_IMAGE_BASE, madness: process.env.NEWSLETTER_BRACKET_MADNESS_BASE };
+  const saved = { banner: process.env.NEWSLETTER_GAZETTE_BANNER_BASE, board: process.env.NEWSLETTER_BOARD_IMAGE_BASE, madness: process.env.NEWSLETTER_BRACKET_MADNESS_BASE, leaders: process.env.NEWSLETTER_RUNS_LEADERBOARD_BASE };
   process.env.NEWSLETTER_GAZETTE_BANNER_BASE = 'https://img.example.invalid/nl/gazette/banner/';
   process.env.NEWSLETTER_BOARD_IMAGE_BASE = 'https://img.example.invalid/nl/digest';
   try {
@@ -288,8 +288,15 @@ test('the Gazette shows the school\'s banner and its final board of the week (Pe
       .map(piece => withMadness.indexOf(piece));
     assert.ok(at.every((k, i) => k > withMadness.indexOf('Hamilton Alumni Stats') && (i === 0 || k > at[i - 1])), 'Bracket Madness order: ' + at);
     assert.doesNotMatch(withMadness, /pair-7-8/);
+    // It Ain't Over: the Total Runs Leaderboards after Bracket Madness, the fan's pair first.
+    process.env.NEWSLETTER_RUNS_LEADERBOARD_BASE = 'https://img.example.invalid/nl/gazette/leaders';
+    const withLeaders = renderFinishedEdition(facts).html;
+    const lat = ['Bracket Madness Around the Country', "It Ain't Over Till It's Over", 'Season runs through Week 1.', '/leaders/2026-03-29/5004.png', '/leaders/2026-03-29/pair-1-2.png']
+      .map(piece => withLeaders.indexOf(piece));
+    assert.ok(lat.every((k, i) => k >= 0 && (i === 0 || k > lat[i - 1])), 'leaderboard order: ' + lat);
+    assert.doesNotMatch(withLeaders, /Knocked-out schools/);
   } finally {
-    for (const [k, v] of [['NEWSLETTER_GAZETTE_BANNER_BASE', saved.banner], ['NEWSLETTER_BOARD_IMAGE_BASE', saved.board], ['NEWSLETTER_BRACKET_MADNESS_BASE', saved.madness]] as const) if (v == null) delete process.env[k]; else process.env[k] = v;
+    for (const [k, v] of [['NEWSLETTER_GAZETTE_BANNER_BASE', saved.banner], ['NEWSLETTER_BOARD_IMAGE_BASE', saved.board], ['NEWSLETTER_BRACKET_MADNESS_BASE', saved.madness], ['NEWSLETTER_RUNS_LEADERBOARD_BASE', saved.leaders]] as const) if (v == null) delete process.env[k]; else process.env[k] = v;
   }
 });
 
@@ -300,4 +307,17 @@ test('Bracket Madness picks the home game, then upsets biggest first, then the b
     ...Array.from({ length: 8 }, (_, i) => g(10 + i, 3 + i, 120 - i, 'home'))];
   assert.deepEqual(bracketMadnessGames(rows, 5004).map(r => r.game_id), [4, 3, 2, 1, 10, 11, 12, 13]);
   assert.deepEqual(bracketMadnessGames(rows, null).map(r => r.game_id), [3, 4, 2, 1, 10, 11, 12, 13]);
+});
+
+test('Total Runs Leaderboard: site order, shared places, top 10 plus the home school, and a line for the rest', () => {
+  const runs = [30, 25, 25, 20, 19, 18, 17, 16, 15, 14, 14, 13, 12, 12, 12, 5, 1];
+  const stands = runs.map((rf, i) => ({ hsid: 100 + i, region: 3, seed: i + 1, rf, ra: 0, w: 0 }));
+  stands.push({ hsid: 999, region: 4, seed: 1, rf: 99, ra: 0, w: 0 });
+  const plain = regionLeaders(stands, 3, null);
+  assert.deepEqual(plain.rows.map(r => r.place), [1, 2, 2, 4, 5, 6, 7, 8, 9, 10]);
+  assert.equal(plain.summary, '1 team with 14 runs; 1 team with 13 runs; 5 more teams');
+  const home = regionLeaders(stands, 3, 115);
+  assert.equal(home.rows.length, 11);
+  assert.deepEqual([home.rows[10].hsid, home.rows[10].place], [115, 16]);
+  assert.equal(home.summary, '1 team with 14 runs; 1 team with 13 runs; 4 more teams');
 });

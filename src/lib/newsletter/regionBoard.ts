@@ -225,3 +225,82 @@ export function bracketMadnessGames<R extends Record<string, unknown>>(rows: R[]
   const rest = rows.filter(r => !own.includes(r)).sort((a, b) => upset(b) - upset(a) || Math.min(...seeds(a)) - Math.min(...seeds(b)) || Number(a.game_id) - Number(b.game_id));
   return [...own, ...rest].slice(0, max);
 }
+
+/**
+ * The Gazette's Total Runs Leaderboard (the Week 4 TEST 2 proof, Pete, Nov 2026):
+ * two regions on one board under the medallion, "TOTAL RUNS | LEADERBOARD" on
+ * the marquee, each region's top 10 by season runs with place, seed, school and
+ * runs; the fan's home school between red rules; a line for the rest; the
+ * Round 10 note across the bottom.
+ */
+export type LeaderRow = { place: number; seed: number | string | null; name: string; runs: number; framed?: boolean };
+export type LeaderSide = { label: string; rows: LeaderRow[]; summary: string };
+export type LeaderboardInput = { left: LeaderSide; right: LeaderSide; note: string; medallion?: string; fontCss: string };
+
+const L_TOP = 306, L_ROW = 58, L_FOOT = 150;
+
+export function runsLeaderboardHtml(input: LeaderboardInput): string {
+  const n = Math.max(input.left.rows.length, input.right.rows.length, 1);
+  const H = L_TOP + n * L_ROW + L_FOOT;
+  const shapes: string[] = [
+    `<rect x="450" y="152" width="300" height="120" rx="20" fill="${BODY}"/>`,
+    `<path d="M96 180H1104L1140 248H60Z" fill="${BODY}"/>`,
+    `<path d="M0 254Q0 248 6 248H1194Q1200 248 1200 254V${H - 16}H0Z" fill="${BODY}"/>`,
+    `<path d="M0 ${H - 16}H1200V${H - 12}Q1200 ${H} 1188 ${H}H12Q0 ${H} 0 ${H - 12}Z" fill="${BAR}"/>`,
+    `<circle cx="600" cy="123" r="117" fill="${BODY}"/><circle cx="600" cy="123" r="111" fill="#ffffff"/>`,
+    input.medallion ? `<clipPath id="m"><circle cx="600" cy="123" r="104"/></clipPath><image href="${esc(input.medallion)}" x="479" y="2" width="242" height="242" clip-path="url(#m)"/>` : `<circle cx="600" cy="123" r="104" fill="#1c2b3f"/>`,
+    `<rect x="598" y="268" width="4" height="${L_TOP + n * L_ROW + 70 - 268}" fill="${RULE}"/>`,
+  ];
+  const parts: string[] = [];
+  for (const [side, x0] of [[input.left, 24], [input.right, 616]] as const) {
+    parts.push(text(esc(side.label.toUpperCase()), { size: 24, baseline: 292, left: x0 + 8, color: YELLOW, weight: 600, spacing: 1.5 }));
+    parts.push(text('RUNS', { size: 24, baseline: 292, center: x0 + 516, width: 100, color: YELLOW, weight: 600, spacing: 1.5 }));
+    shapes.push(`<rect x="${x0}" y="300" width="560" height="3" fill="${RULE}"/>`);
+    side.rows.forEach((row, i) => {
+      const y = L_TOP + i * L_ROW;
+      shapes.push(`<rect x="${x0 + 476}" y="${y + 6}" width="80" height="${L_ROW - 12}" fill="${CELL}"/>`);
+      shapes.push(`<rect x="${x0}" y="${y + L_ROW - 2}" width="560" height="2" fill="${row.framed ? RED : RULE}"/>`);
+      if (row.framed) shapes.push(`<rect x="${x0}" y="${y - 3}" width="560" height="5" fill="${RED}"/>`, `<rect x="${x0}" y="${y + L_ROW - 3}" width="560" height="5" fill="${RED}"/>`);
+      const base = y + 40;
+      parts.push(text(`(${row.place})`, { size: 16, baseline: base - 2, left: x0 + 8, color: MUTED, weight: 600 }));
+      const seed = row.seed == null || row.seed === '' ? '' : `<span style="font-size:16px;font-weight:500;color:${YELLOW};vertical-align:9px;margin-right:7px">(#${esc(row.seed)})</span>`;
+      parts.push(`<div class="nm" style="position:absolute;top:${(base - ASC * 26).toFixed(2)}px;right:${W - (x0 + 462)}px;max-width:390px;text-align:right;font:500 26px/1 Oswald,sans-serif;letter-spacing:.4px;color:${WHITE};white-space:nowrap">${seed}${esc(row.name.toUpperCase())}</div>`);
+      parts.push(text(String(row.runs), { size: 27, baseline: base, center: x0 + 516, width: 80, color: YELLOW, weight: 650 }));
+    });
+    const sy = L_TOP + n * L_ROW + 30;
+    parts.push(`<div style="position:absolute;top:${sy - 14}px;left:${x0 + 8}px;width:540px;font:400 17px/1.3 Arial,Helvetica,sans-serif;color:${WHITE}">${esc(side.summary)}</div>`);
+  }
+  parts.unshift(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="position:absolute;left:0;top:0">${shapes.join('')}</svg>`);
+  parts.push(text('TOTAL RUNS', { size: 41, baseline: 234, left: 141, color: WHITE, weight: 650, spacing: 3.3 }));
+  parts.push(text('LEADERBOARD', { size: 41, baseline: 234, right: 1059, color: WHITE, weight: 650, spacing: 3.3 }));
+  parts.push(`<div style="position:absolute;top:${H - 82}px;left:100px;width:1000px;text-align:center;font:400 18px/1.35 Arial,Helvetica,sans-serif;color:${YELLOW}">${esc(input.note)}</div>`);
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${input.fontCss}html,body{margin:0;padding:0;background:transparent}</style></head>`
+    + `<body><div id="board" style="position:relative;width:${W}px;height:${H}px;overflow:hidden">${parts.join('')}</div></body></html>`;
+}
+
+export type RunStand = { hsid: number; region: number; seed: number; rf: number; ra: number; w: number };
+/**
+ * A region's leaderboard rows, the site's order (src/components/bracket/gallery.tsx
+ * rankRegion: most runs, then run differential, wins, seed). Places are shared by
+ * equal runs, as the proof prints them. The top 10, plus the home school's own row
+ * when it is lower; then a line for the rest ("1 team with 22 runs; 4 teams tied
+ * with 21 runs; 113 more teams").
+ */
+export function regionLeaders(stands: RunStand[], region: number, home: number | null, show = 10): { rows: (RunStand & { place: number })[]; summary: string } {
+  const ranked = stands.filter(s => s.region === region)
+    .sort((x, y) => y.rf - x.rf || (y.rf - y.ra) - (x.rf - x.ra) || y.w - x.w || x.seed - y.seed);
+  const placed = ranked.map((s, i) => ({ ...s, place: 0, i }));
+  placed.forEach((s, i) => { s.place = i > 0 && s.rf === placed[i - 1].rf ? placed[i - 1].place : i + 1; });
+  const top = placed.slice(0, show);
+  const homeRow = home == null ? undefined : placed.slice(show).find(s => s.hsid === home);
+  const rest = placed.slice(show).filter(s => s !== homeRow);
+  const groups: string[] = [];
+  let k = 0;
+  while (groups.length < 2 && k < rest.length) {
+    const runs = rest[k].rf, count = rest.filter(s => s.rf === runs).length;
+    groups.push(count === 1 ? `1 team with ${runs} runs` : `${count} teams tied with ${runs} runs`);
+    k += count;
+  }
+  if (rest.length > k) groups.push(`${rest.length - k} more teams`);
+  return { rows: [...top, ...(homeRow ? [homeRow] : [])].map(({ i, ...s }) => s), summary: groups.join('; ') };
+}
