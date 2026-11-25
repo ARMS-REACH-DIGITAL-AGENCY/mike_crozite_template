@@ -18,6 +18,7 @@ const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
     CREATE TABLE tbc_schools_raw(hsid integer PRIMARY KEY,hs_lookup_key text,hsname text,hslocation text,cityname text,regionid text);
     CREATE TABLE tbc_players_raw(playerid text PRIMARY KEY,high_school text);
     CREATE TABLE player_hsid_exclusion(playerid text,hsid text);
+    CREATE TABLE yat_registry_ids(yatid text,source text,source_id text);
     CREATE VIEW player_hsids AS SELECT p.playerid,s.hsid FROM tbc_players_raw p
       LEFT JOIN tbc_schools_raw s ON regexp_replace(lower(trim(p.high_school)),'[.\\s]+',' ','g')=regexp_replace(lower(trim(s.hs_lookup_key)),'[.\\s]+',' ','g')
       WHERE NOT EXISTS(SELECT 1 FROM player_hsid_exclusion x WHERE x.playerid=p.playerid AND x.hsid=s.hsid::text);
@@ -59,6 +60,13 @@ const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
     INSERT INTO indy_iscore_batting_2026_season_raw VALUES('indy',2026),('indy',2026),(NULL,2026),('historic',2025);
     INSERT INTO indy_iscore_pitching_2026_season_raw VALUES('indy',2026);
     INSERT INTO flip_card_front_stage VALUES('retired-current','1','RETIRED','TRIPLE-A'),('free-current','1','FREE AGENT','MLB'),('two-way','1','UNKNOWN','NCAA'),('historic','1','UNKNOWN','MLB'),('stage-only','6','ACTIVE','MLB');
+    -- A source-backed YAT card at a school absent from tbc_schools_raw must
+    -- remain discoverable by its actual 2026 TBC season participation.
+    ALTER TABLE flip_card_front_stage ADD COLUMN yatid text;
+    INSERT INTO yat_registry_ids VALUES('YAT900001','tbc','source-backed-stage-only');
+    INSERT INTO flip_card_front_stage(playerid,hsid,status_label,level_label,yatid)
+      VALUES('YAT900001','10','UNKNOWN','CCCAA','YAT900001');
+    INSERT INTO tbc_batting_2026_season_raw VALUES('source-backed-stage-only','2026');
   `);
   const logs = [
     ['cam','807284',true,'name_and_identity','2026-08-06','2026','R','807284',1],
@@ -84,6 +92,11 @@ const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
   const summary = await db.query(`WITH ${helper.exports.activeAlumniSummaryCtes('SELECT hsid FROM tbc_schools_raw')}
     SELECT s.*,ARRAY(SELECT playerid FROM active_alumni a WHERE a.hsid=s.hsid ORDER BY playerid) ids FROM active_alumni_summary s ORDER BY hsid`);
   const byId = new Map(summary.rows.map(row=>[row.hsid,row]));
+  const stageOnlySource = await db.query(`WITH ${helper.exports.activeAlumniCtes('SELECT 10')}
+    SELECT hsid,playerid FROM active_alumni ORDER BY hsid,playerid`);
+  check('YAT-registered 2026 TBC player joins new school without raw school row',()=>
+    assert.deepEqual(stageOnlySource.rows,[{hsid:10,playerid:'source-backed-stage-only'}]));
+
   check('own2026 retired/free-agent/two-way membership; duplicates countonce',()=>assert.deepEqual(byId.get(1).ids,['free-current','retired-current','two-way']));
   check('2025 statusUNKNOWN and excludedschoollink do not becomeActive',()=>assert.equal(byId.get(1).current_aa,3));
   check('verified partialgame evidence establishes membership without fullcoverage',()=>assert.deepEqual(byId.get(2),{hsid:2,current_aa:1,active_stats_pending:true,ids:['cam']}));
