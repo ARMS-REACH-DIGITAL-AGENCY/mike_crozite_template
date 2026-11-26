@@ -160,6 +160,10 @@ const ref = (season: string, r: { region: number; week: number; home_hsid: numbe
 // morning after) when the job last scored the game is frozen - its inning and
 // its drawer stay as stored, whatever stats arrive later (Pete, Oct 27). A
 // day closed since then is scored now, once, and frozen from then on.
+function keepFrozenRows<T extends unknown[]>(frozen: T[], fresh: T[] | undefined): T[] {
+  const ids = new Set(frozen.map(r => r[0]));
+  return [...frozen, ...(fresh || []).filter(r => !ids.has(r[0]))];
+}
 function freezeClosedDays(res: Result, row: Row, weekStart: string) {
   const stored = (row.innings || []).map(Number);
   if (!row.computed_at || stored.length < 14) return;
@@ -176,8 +180,11 @@ function freezeClosedDays(res: Result, row: Row, weekStart: string) {
     // freshly recomputed metrics that could imply the wrong winner.
     if (res.box.x && was.d?.[d]) res.box.x[d] = was.x?.[d] ?? was.d[d];
     if (was.f?.[d] && res.box.f) res.box.f[d] = was.f[d];
-    if (was.h.days?.[d] && res.box.h.days) res.box.h.days[d] = was.h.days[d];
-    if (was.a.days?.[d] && res.box.a.days) res.box.a.days[d] = was.a.days[d];
+    // The saved rows stay exactly as stored; a roster member missing from them
+    // (joined mid-week) is added as the scorer's empty 0-0 row, so every day tab
+    // still lists the whole roster (Pete, Nov 17 2026).
+    if (was.h.days?.[d] && res.box.h.days) res.box.h.days[d] = keepFrozenRows(was.h.days[d], res.box.h.days[d]);
+    if (was.a.days?.[d] && res.box.a.days) res.box.a.days[d] = keepFrozenRows(was.a.days[d], res.box.a.days[d]);
   }
 }
 

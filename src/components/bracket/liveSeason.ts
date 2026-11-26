@@ -338,7 +338,9 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
           // who was not on that day's record (joined the school's roster later,
           // e.g. promoted or assigned mid-week, like Jeremiah Boyd on April 16)
           // gets nothing for it and counts from the days he appears.
-          if (closed && !old) { gameFacts.push([]); continue; }
+          // He still appears on that day's list as an empty 0-0 row: every day tab
+          // lists the whole roster (Pete, Nov 17 2026); an empty row adds nothing.
+          if (closed && !old) { gameFacts.push([]); dayRows[d].push(playerRow(p, 0, 0, [0, 0], undefined)); continue; }
           if (x && (x.b || x.p)) {
             days[d].set(p[0], x.lv);
             weekLv.push(x.lv);

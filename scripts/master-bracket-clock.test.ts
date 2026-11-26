@@ -239,7 +239,8 @@ test('a player who joins mid-week gets nothing on locked days and counts from hi
     // Everyone already on the locked day is unchanged; the new arrival shows only as an empty 0-0 row.
     assert.deepEqual(box.h.days?.[d].filter(r => r[0] !== 'YAT000003'), locked.h.days?.[d]);
     const added = box.h.days?.[d].find(r => r[0] === 'YAT000003');
-    if (added) assert.deepEqual(added[8], [0, 0]);
+    assert.ok(added, 'every day tab lists the whole roster');
+    assert.deepEqual(added![8], [0, 0]);
   }
   assert.deepEqual(box.h.clubGames?.YAT000003?.slice(0, 3), [[], [], []]);
   assert.deepEqual(box.h.clubGames?.YAT000003?.[3], [['r3', 1, 4]]);
