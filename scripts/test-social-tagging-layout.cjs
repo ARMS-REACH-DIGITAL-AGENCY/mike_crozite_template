@@ -24,4 +24,13 @@ assert.match(viewer,/<PlayerTagging/, 'Story modal has Tag action');
 assert.match(retired,/<PlayerTagging/, 'Where YAT Now includes Tag action');
 assert.match(tag,/ContributeSearch onPlayer/, 'Global player search remains functional');
 assert.match(tag,/onClick=\{\(\)=>void mutate\('untag',p\.playerId\)\}/, 'Existing tags remain removable');
+for(const [name,route] of [['Stories',read('src/app/api/stories/[id]/tags/route.ts')],['Where YAT Now',read('src/app/api/contribute/where-yat-now/tags/route.ts')]]) {
+  assert.ok(route.includes('YAT[0-9]{6,}'),name+' accepts canonical YAT IDs');
+  assert.ok(route.includes('yatid=public.yat_id_for'),name+' resolves registry identities');
+  assert.ok(route.includes('NOT EXISTS(SELECT 1 FROM'),name+' avoids adding an existing person under another ID');
+  assert.ok(route.includes('primary_id'),name+' protects the original player against alias self-tags');
+}
+assert.ok(tag.includes('body.light-theme .ypt-panel'),'Tag panel follows light mode');
+assert.ok(tag.includes('color:var(--ypt-fg)!important'),'Search results use the panel text color');
+assert.ok(tag.includes('Saving tags…'),'Tag mutation shows visible progress');
 console.log('PASS: original three equal social buttons restored; Tag gets separate right-aligned row, picker full card width, player search and existing tags preserved.');
