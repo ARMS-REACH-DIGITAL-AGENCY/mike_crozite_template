@@ -8,6 +8,8 @@ import {
   type SideWeek,
   addToBuckets,
   bracketOrder,
+  buildWeeklyPerformancePool,
+  resolvePlayerTiebreak,
   emptyBat,
   emptyPit,
   offenseScore,
@@ -169,12 +171,12 @@ test("ties: nothing to compare - the commissioner decides, or a tie on the leade
 
 test("tiebreak: best hitter vs best hitter and best pitcher vs best pitcher; winning both takes it", () => {
   const g = playGame(tied(roster(hitter(5), hitter(1), pitcher(10))), tied(roster(hitter(4), pitcher(6), pitcher(9))), baselines, HOLD);
-  assert.deepEqual([g.home, g.away], [2, 0]);
+  assert.deepEqual([g.home, g.away], [1, 0]);
   assert.equal(g.decidedBy, 'players');
   assert.equal(g.tieRank, 1);
   assert.deepEqual(g.tieScore, [2, 0]);
   assert.equal(g.innings.length, 10);
-  assert.deepEqual([g.innings[9].home, g.innings[9].away], [2, 0]);
+  assert.deepEqual([g.innings[9].home, g.innings[9].away], [1, 0]);
   assert.equal(g.winner, 'home');
 });
 
@@ -184,13 +186,12 @@ test('tiebreak: 1-1 on #1 advances to #2 and cumulative player runs decide it', 
   const home = roster(hitter(5), hitter(2), pitcher(10), pitcher(7));
   const away = roster(hitter(4), hitter(3), pitcher(12), pitcher(9));
   const g = playGame(tied(home), tied(away), baselines, HOLD);
-  assert.deepEqual([g.home, g.away], [1, 3]);
+  assert.deepEqual([g.home, g.away], [0, 1]);
   assert.equal(g.decidedBy, 'players');
   assert.equal(g.tieRank, 2);
   assert.deepEqual(g.tieScore, [1, 3]);
-  assert.equal(g.innings.length, 11);
-  assert.deepEqual([g.innings[9].home, g.innings[9].away], [1, 1]);
-  assert.deepEqual([g.innings[10].home, g.innings[10].away], [0, 2]);
+  assert.equal(g.innings.length, 10);
+  assert.deepEqual([g.innings[9].home, g.innings[9].away], [0, 1]);
   assert.equal(g.winner, 'away');
 });
 
@@ -218,46 +219,39 @@ test('extra innings: one matchup at a rank is enough; the missing one scores not
   assert.deepEqual([g.innings[9].home, g.innings[9].away], [1, 0]);
 });
 
-test('extra innings: hitter vs pitcher when there is no same-type matchup (closer to league average wins)', () => {
-  // Gilman at Hendricken, Week 1: away's only player went 0-for-1 (-100 OPS+,
-  // 200 below average); home's only player is a pitcher below average
-  // (FIP- about 145, 45 below). The pitcher is closer: home scores.
-  const coldBat = day('MLB', { pa: 1, ab: 1 });
-  const shakyArm = day('MLB', {}, { outs: 18, hr: 1, bb: 2, so: 1 });
-  const g = playGame(tied(roster(shakyArm)), tied(roster(coldBat)), baselines, HOLD);
-  assert.equal(g.winner, 'home');
-  assert.equal(g.decidedBy, 'cross');
-  assert.equal(g.innings[9].kind, 'cross');
-  assert.deepEqual([g.innings[9].home, g.innings[9].away], [1, 0]);
-  // A hot hitter (143 OPS+, 43 above) beats the same pitcher.
-  const hotBat = day('MLB', { pa: 10, ab: 10, h: 3, hr: 1 });
-  const h = playGame(tied(roster(shakyArm)), tied(roster(hotBat)), baselines, HOLD);
-  assert.equal(h.winner, 'away');
-  assert.equal(h.decidedBy, 'cross');
+test('cross-position tiebreak uses same-week percentile ranks, not raw distance from 100', () => {
+  const pool = { hitters: [30, 82, 118, 138, 235, 270], pitchers: [-140, -120, -102, -81, -73, -35] };
+  const g = resolvePlayerTiebreak({ hitters: [235, 78], pitchers: [81, 102] },
+    { hitters: [138, 118, 82], pitchers: [73] }, HOLD, pool);
+  assert.equal(g.rank, 2);
+  assert.equal(g.winner, 'away');
+  assert.equal(g.cross, true);
+  assert.deepEqual(g.comparisons, [1, 3]);
 });
-
-test('extra innings: hitter vs pitcher continues inning by inning with the unmatched players', () => {
-  // No same-type matchups: home has two pitchers, away two hitters, so the
-  // 10th inning is already hitter vs pitcher and labeled 'cross'.
-  const hotBat = day('MLB', { pa: 10, ab: 10, h: 3, hr: 1 });
-  const coldBat = day('MLB', { pa: 10, ab: 10, h: 1 });
-  const shakyArm = day('MLB', {}, { outs: 18, hr: 1, bb: 2, so: 1 });
-  const goodArm = day('MLB', {}, { outs: 18, so: 8 });
-  const g = playGame(tied(roster(goodArm, shakyArm)), tied(roster(hotBat, coldBat)), baselines, HOLD, false, () => null);
-  assert.equal(g.innings[9].kind, 'cross');
-  assert.equal(g.decidedBy, 'cross');
-  assert.ok(g.winner === 'home' || g.winner === 'away');
+test('opposite types compare percentiles and equal percentiles advance to fallback', () => {
+  const a = resolvePlayerTiebreak({ hitters: [200], pitchers: [] }, { hitters: [], pitchers: [50] }, HOLD,
+    { hitters: [100, 200, 300, 400], pitchers: [-100, -80, -60, -50] });
+  assert.equal(a.winner, 'away');
+  const b = resolvePlayerTiebreak({ hitters: [200], pitchers: [] }, { hitters: [], pitchers: [50] }, HOLD,
+    { hitters: [100, 200], pitchers: [-100, -50] });
+  assert.equal(b.winner, null);
 });
-
-test('extra innings: #1s split, nothing left at #2 - the hitter-vs-pitcher inning comes next', () => {
-  // #1: home's hitter better (5 hits vs 4), away's pitcher better (12 K vs 10) -> 1-1.
-  // Away has no #2s, so inning 11 is hitter vs pitcher.
-  const home = roster(hitter(5), hitter(4, 1), pitcher(10), pitcher(7));
-  const away = roster(hitter(4), pitcher(12));
-  const g = playGame(tied(home), tied(away), baselines, HOLD, false, () => null);
-  assert.deepEqual([g.innings[9].home, g.innings[9].away], [1, 1]);
-  assert.equal(g.innings[10].kind, 'cross');
-  assert.ok(g.decidedBy === 'cross' || g.decidedBy === 'commissioner');
+test('cross-position game emits exactly one winning run and never an eleventh inning', () => {
+  const h = tied(roster(hitter(5), pitcher(10), pitcher(7)));
+  const a = tied(roster(hitter(4), pitcher(12), hitter(3)));
+  const pool = buildWeeklyPerformancePool([h, a, tied(roster(hitter(6), pitcher(15)))], baselines, 'adjusted');
+  const g = playGame(h, a, baselines, HOLD, false, () => 'away', undefined, pool);
+  assert.equal(g.innings.length, 10);
+  assert.equal(g.home + g.away, 1);
+  assert.equal(g.innings[9].home + g.innings[9].away, 1);
+});
+test('no re-use of players once one school has exhausted all matchups', () => {
+  const h = tied(roster(hitter(5), hitter(4, 1), pitcher(10), pitcher(7)));
+  const a = tied(roster(hitter(4), pitcher(12)));
+  const g = playGame(h, a, baselines, HOLD, false, () => 'away');
+  assert.equal(g.decidedBy, 'commissioner');
+  assert.deepEqual([g.home, g.away], [0, 1]);
+  assert.equal(g.innings.length, 10);
 });
 
 test('extra innings: nothing left to compare - the better club run differential wins first', () => {
