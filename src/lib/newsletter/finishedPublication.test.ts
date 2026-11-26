@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFinishedEdition, renderFinishedEdition, stableJson, type FinishedEdition, type Row } from './finishedPublication';
+import { readFinishedEdition, readNewsletterPreferences, renderFinishedEdition, stableJson, type FinishedEdition, type Row } from './finishedPublication';
 import { bracketMadnessGames, regionLeaders } from './regionBoard';
 import { NEWSLETTER_ASSETS_BASE, newsletterImageBase } from './newsletterImages';
 
@@ -346,4 +346,39 @@ test('Total Runs Leaderboard: site order, shared places, top 10 plus the home sc
   assert.equal(home.rows.length, 11);
   assert.deepEqual([home.rows[10].hsid, home.rows[10].place], [115, 16]);
   assert.equal(home.summary, '1 team with 14 runs; 1 team with 13 runs; 4 more teams');
+});
+
+
+test('rehearsal reads the exact same live preference query on each new edition; copied QA favorites never participate', async()=>{
+  const saved=fixture(), live=fixture();
+  saved.recipient.email='wrong@example.invalid'; saved.selection.favorites=['YAT000099'];
+  saved.rows.daily_stat_lines.push({stats_date:request.date,stat_line_id:'2',yatid:'YAT000002',line:'Second favorite played',sort_key:'b'});
+  live.recipient={...live.recipient,plan:'superfan',is_superfan:true};
+  const qa=database(saved), prod=database(live);
+  const load=(r: Parameters<typeof readNewsletterPreferences>[1])=>readNewsletterPreferences(prod,r);
+  const first=await readFinishedEdition(qa,request,load);
+  assert.equal(first.recipient.is_superfan,true);
+  assert.deepEqual(first.selection.favorites,['YAT000001']);
+  assert.deepEqual(first.rows.daily_stat_lines.map(r=>r.yatid),['YAT000001']);
+  live.selection.favorites=['YAT000002'];
+  const second=await readFinishedEdition(qa,request,load);
+  assert.deepEqual(second.selection.favorites,['YAT000002']);
+  assert.deepEqual(second.rows.daily_stat_lines.map(r=>r.yatid),['YAT000002']);
+  assert.equal(prod.queries.filter(q=>q.includes('newsletter_favorites')).length,2);
+  assert.ok(!qa.queries.some(q=>/newsletter_recipients|newsletter_favorites|user_scoreboard_schools/.test(q)));
+  assert.deepEqual(saved.selection.favorites,['YAT000099']);
+  await assert.rejects(readFinishedEdition(qa,request,async()=>{throw Error('live unavailable')}),/live unavailable/);
+  await assert.rejects(readFinishedEdition(qa,request,async()=>({recipient:{...live.recipient,email:'wrong@example.invalid'},favorites:[],picks:[]})),/does not match/);
+});
+
+test('live weekly review selects updated favorites from the same production query, without QA fallback',async()=>{
+  const saved=fixture(), live=fixture();
+  saved.ready={...saved.ready,cadence:'weekly',period_start:'2026-03-23',period_end:'2026-03-29',cutoff_at:'2026-03-30T11:00:00Z',row_counts:{weekly_player_lines:0,weekly_box_scores:0}};
+  saved.rows.weekly_player_totals=[{yatid:'YAT000002'}];
+  live.selection.favorites=['YAT000002'];
+  const qa=database(saved),prod=database(live);
+  const weekly=await readFinishedEdition(qa,{...request,cadence:'weekly',date:'2026-03-23'},r=>readNewsletterPreferences(prod,r));
+  assert.deepEqual(weekly.selection.favorites,['YAT000002']);
+  assert.deepEqual(weekly.rows.weekly_player_totals,[{yatid:'YAT000002'}]);
+  assert.ok(!qa.queries.some(q=>/newsletter_recipients|newsletter_favorites|user_scoreboard_schools/.test(q)));
 });
