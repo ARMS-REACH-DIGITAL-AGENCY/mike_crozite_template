@@ -52,3 +52,35 @@ test('the full recap leads with the turning point and credits only the runs a si
   assert.match(s.paragraphs[2], /Be sure to check out the regional leaderboards below\.$/);
   assert.doesNotMatch(s.paragraphs.join(' '), /no runs scored|in the first inning\. There were/i);
 });
+
+
+// Trimmed actual audited April 12 replay boxes (games 385-387). Omit only
+// inactive zero-stat rows; keep every active player's counting facts and IDs.
+import replaySeries from './fixtures/hamilton-clear-falls-round1-2026.json';
+test('completed Hamilton-Clear Falls round recaps all three games and series leaders', () => {
+  const games = replaySeries as unknown as StoryGame[];
+  const schools = (hsid:number)=>({5004:{name:'Hamilton',city:'Chandler, AZ',nickname:'Huskies'},14784:{name:'Clear Falls',city:'League City, TX'},99999:{name:'Stillwater',city:'Stillwater, OK'}} as Record<number,{name:string;city:string;nickname?:string}>)[hsid];
+  const next = {...games[2],week:4,round:2,game_no:1,away_hsid:99999,away_seed:64,winner_hsid:null,home_runs:null,away_runs:null,box:null,innings:null};
+  const unrelated = {...games[0],away_hsid:99999,winner_hsid:99999};
+  const all = [...games,next,unrelated];
+  const before = JSON.stringify(all);
+  const story = weeklyStory(games[2],5004,all,schools,'2026-04-06','2026-04-12','2026-04-13');
+  assert.equal(story.title,'Hamilton wins the series over Clear Falls, 2-1.');
+  assert.match(story.paragraphs[0],/Hamilton dropped the opener but won the next two games to advance past Clear Falls, 2-1/);
+  assert.match(story.paragraphs[0],/15-11 over the three weeks/);
+  assert.match(story.paragraphs[1],/In Game 1, Clear Falls edged Hamilton 4-3.*tied 3-3 after eight innings.*3-0 week/);
+  assert.match(story.paragraphs[2],/In Game 2, Hamilton beat Clear Falls 8-4.*Patrick Murphy on the mound \(33 FIP-\)/);
+  assert.match(story.paragraphs[3],/In Game 3, Hamilton edged Clear Falls 4-3.*Cody Bellinger's bat \(127 OPS\+\).*Shane Murphy on the mound \(50 FIP-\).*Hamilton led 4-1 after seven innings.*8th and 9th/);
+  assert.match(story.paragraphs[4],/Drew Swift went 14-for-47/);
+  assert.match(story.paragraphs[4],/Cody Bellinger went 13-for-54/);
+  assert.match(story.paragraphs[4],/Josh Tiedemann struck out 7 in 4\.0 innings, allowing 0 earned runs/);
+  assert.match(story.paragraphs[4],/Shane Murphy struck out 11 in 11\.0 innings, allowing 2 earned runs/);
+  assert.match(story.paragraphs[5],/Braydon Fisher struck out 10 in 8\.1 innings, allowing 0 earned runs/);
+  assert.match(story.paragraphs[6],/Next up: No\. 64 Stillwater \(Stillwater, OK\) in Round 2, starting today, April 13/);
+  assert.equal(JSON.stringify(all),before,'story must not change stored scores or boxes');
+  const opponent = weeklyStory(games[2],14784,all,schools,'2026-04-06','2026-04-12','2026-04-13');
+  assert.match(opponent.paragraphs.join(' '),/Clear Falls now competes in the season-long Most Runs Tournament/);
+  assert.match(opponent.paragraphs.join(' '),/Braydon Fisher struck out 10 in 8\.1 innings/);
+  const mid = weeklyStory(games[1],5004,all,schools,'2026-03-30','2026-04-05','2026-04-06');
+  assert.doesNotMatch(mid.paragraphs.join(' '),/In Game 3,|won the next two games|13-for-54/);
+});

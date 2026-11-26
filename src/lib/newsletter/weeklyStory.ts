@@ -156,6 +156,54 @@ function sumPlayers(lists: StoryPlayer[][]): StoryPlayer[] {
   return [...by.values()].map(({ p, b, q, o, f }) => [p[0], p[1], p[2], p[3], b, q, o[1] ? o[0] / o[1] : null, f[1] ? f[0] / f[1] : null] as StoryPlayer);
 }
 
+/** One earlier game's result and decisive swing, from the saved line score.
+ * A close finish gets the late rally in its proper chronological order. */
+function seriesGame(game: StoryGame, hsid: number, me: SchoolInfo, them: SchoolInfo, levelOf: (id: string) => string | undefined): string {
+  const opp = game.home_hsid === hsid ? Number(game.away_hsid) : Number(game.home_hsid);
+  const won = game.winner_hsid === hsid;
+  const wName = won ? me.name : them.name, lName = won ? them.name : me.name;
+  const wRuns = runsOf(game, won ? hsid : opp), lRuns = runsOf(game, won ? opp : hsid);
+  const verb = wRuns - lRuns === 1 ? 'edged' : 'beat';
+  const outcome = `In Game ${game.game_no}, ${wName} ${verb} ${lName} ${wRuns}-${lRuns}.`;
+  const swing = recap(game, hsid, me, them, levelOf)[0];
+  const inn = game.innings || [];
+  const n = Math.min(9, Math.floor(inn.length / 2));
+  const winnerHome = game.winner_hsid === game.home_hsid;
+  let w = 0, l = 0, lead = 0, peak = -1, peakW = 0, peakL = 0;
+  for (let i = 0; i < n; i++) {
+    w += Number(inn[2*i + (winnerHome ? 0 : 1)]) || 0;
+    l += Number(inn[2*i + (winnerHome ? 1 : 0)]) || 0;
+    if (w-l >= lead) { lead=w-l; peak=i; peakW=w; peakL=l; }
+  }
+  const late = Array.from({length:Math.max(0,n-peak-1)},(_,i)=>peak+1+i)
+    .filter(i=>Number(inn[2*i+(winnerHome?1:0)])>0).map(i=>ORD(i+1));
+  const finish = n>0 && peak>=0 && peak<n-1 && lead>wRuns-lRuns && late.length
+    ? ` ${wName} led ${peakW}-${peakL} after ${WORDS[peak+1] || peak+1} innings, but ${lName} scored in the ${listOf(late)} to finish ${wRuns-lRuns===1?'one run':(wRuns-lRuns)+' runs'} short.`
+    : '';
+  return outcome + (swing ? ' ' + swing : '') + finish;
+}
+
+/** Series leaders use summed counting facts. Rank using the existing PA-/outs-
+ * weighted metrics; don't present a rounded weekly-index average as an exact
+ * new OPS+/FIP- calculation. Include both teams, with no invented club/level. */
+function seriesLeaders(players: StoryPlayer[], name: string): string {
+  const bats = players.filter(p=>batted(p) && p[6]!=null)
+    .sort((a,b)=>Number(b[6])-Number(a[6]) || (b[4] as number[])[0]-(a[4] as number[])[0]).slice(0,2);
+  const arms = players.filter(p=>pitched(p) && p[7]!=null)
+    .sort((a,b)=>Number(a[7])-Number(b[7]) || (b[5] as number[])[0]-(a[5] as number[])[0]).slice(0,2);
+  const hitters = bats.map(p=>{
+    const b=p[4] as number[];
+    const extra=[b[5]&&plural(b[5],'home run'),b[3]&&plural(b[3],'double'),b[4]&&plural(b[4],'triple'),b[6]&&plural(b[6],'walk')].filter(Boolean);
+    return `${p[1]} went ${b[2]}-for-${b[1]}${extra.length?' with '+listOf(extra as string[]):''}`;
+  });
+  const pitchers = arms.map(p=>{
+    const q=p[5] as number[];
+    return `${p[1]} struck out ${q[4]} in ${ip(q[0])} innings, allowing ${plural(q[7],'earned run')}`;
+  });
+  return [hitters.length?`Over the three weeks, at the plate for ${name}, ${listOf(hitters)}.`:'',
+    pitchers.length?`On the mound for ${name}, ${pitchers.join('; ')}.`:''].filter(Boolean).join(' ');
+}
+
 /** The letter for one school's game this week. games: every stored game of the season. */
 export function weeklyStory(game: StoryGame, hsid: number, games: StoryGame[], info: (h: number) => SchoolInfo,
   monday: string, sunday: string, nextMonday: string,
@@ -192,7 +240,7 @@ export function weeklyStory(game: StoryGame, hsid: number, games: StoryGame[], i
       paragraphs: [`${result} in Week ${game.week} ${dates}. Every run counts toward the Total Runs race.`,
         who.length ? `The alumni who carried the week: ${who.join('; ')}.` : `No ${me.name} alumni played this week.`] };
   }
-  const series = games.filter((g) => g.stage === game.stage && g.round === game.round && g.region === game.region && g.series_no === game.series_no && g.week <= game.week)
+  const series = games.filter((g) => g.stage === game.stage && g.round === game.round && g.region === game.region && g.series_no === game.series_no && g.week <= game.week && ((g.home_hsid === hsid && g.away_hsid === opp) || (g.away_hsid === hsid && g.home_hsid === opp)) && (g.winner_hsid === hsid || g.winner_hsid === opp))
     .sort((a, b) => a.game_no - b.game_no);
   const wins = series.filter((g) => g.winner_hsid === hsid).length, losses = series.filter((g) => g.winner_hsid === opp).length;
   const over = series.length === 3 && game.game_no === 3;
@@ -227,7 +275,27 @@ export function weeklyStory(game: StoryGame, hsid: number, games: StoryGame[], i
   const nextLine = nextOf(games.find((g) => g.week === game.week + 1 && (g.home_hsid === hsid || g.away_hsid === hsid)));
   const who = carried(sumPlayers(series.map((g) => (g.box ? g.box[sideOf(g, hsid)].p : []))), levelOf);
   const seriesParas = [first + nextLine, who.length ? `The alumni who carried the series: ${who.join('; ')}.` : `No ${me.name} alumni played in the series.`];
-  if (!opening.length) return { title: seriesTitle, paragraphs: seriesParas };
-  // The week's game first (the rubber game's recap), then the series and what's next.
-  return { title: seriesTitle, paragraphs: [...opening, `${first}${nextLine}${seriesWon ? '' : ` ${me.name} now competes in the season-long Most Runs Tournament, where every run still counts.`} Be sure to check out the regional leaderboards below.`] };
+  if (!series.some(g=>g.innings?.length && g.box)) return { title: seriesTitle, paragraphs: seriesParas };
+  // A completed round is a three-week series story, not the final game's
+  // weekly story followed by a score list. Read the three final stored boxes
+  // (never future games or unrelated series), in chronological order.
+  const winner = seriesWon ? hsid : opp, winnerName = seriesWon ? me.name : them.name;
+  const loserName = seriesWon ? them.name : me.name;
+  const finalWins = Math.max(wins, losses), finalLosses = Math.min(wins, losses);
+  const lead = series[0].winner_hsid !== winner && series[1].winner_hsid === winner && series[2].winner_hsid === winner
+    ? `${winnerName} dropped the opener but won the next two games to advance past ${loserName}, ${finalWins}-${finalLosses}, in ${round}.`
+    : finalLosses === 0
+      ? `${winnerName} swept ${loserName} ${finalWins}-0 in ${round}.`
+      : `${winnerName} won ${round} against ${loserName}, ${finalWins}-${finalLosses}.`;
+  const runSummary = forRuns === against
+    ? ` The schools finished level on total runs, ${forRuns}-${against}.`
+    : ` ${forRuns > against ? me.name : them.name} outscored ${forRuns > against ? them.name : me.name} ${Math.max(forRuns,against)}-${Math.min(forRuns,against)} over the three weeks.`;
+  const paragraphs = [lead + runSummary,
+    ...series.map(g=>seriesGame(g, hsid, me, them, levelOf))];
+  const mineSeries = seriesLeaders(sumPlayers(series.map(g=>g.box?.[sideOf(g,hsid)].p || [])), me.name);
+  const theirSeries = seriesLeaders(sumPlayers(series.map(g=>g.box?.[sideOf(g,opp)].p || [])), them.name);
+  if (mineSeries) paragraphs.push(mineSeries);
+  if (theirSeries) paragraphs.push(theirSeries);
+  paragraphs.push(` ${round} is in the books.${nextLine}${seriesWon ? '' : ` ${me.name} now competes in the season-long Most Runs Tournament, where every run still counts.`} Be sure to check out the regional leaderboards below.`.trim());
+  return { title: seriesTitle, paragraphs };
 }
