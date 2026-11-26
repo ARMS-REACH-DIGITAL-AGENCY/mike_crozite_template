@@ -10,6 +10,8 @@
  * and passed in as addresses; nothing is drawn per fan.
  */
 
+import { CLUB_WL_LABEL, clubWlKey } from '../bracket/statLedgerLabels';
+
 export type GazetteBatRow = {
   name: string; logo?: string; bold: boolean;
   opsPlus: number | null; wl: [number, number] | null;
@@ -89,8 +91,8 @@ const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial
 const HEAD_FONT = "Oswald,'Arial Narrow','Roboto Condensed',Arial,sans-serif";
 const LINE = '#e1e4e8', GOLD_C = '#b07d00', HEAD_BG = '#2e8b5f', HEAD_C = '#ffd34f';
 type Col = { label: string; w: number };
-const BAT_COLS: Col[] = [['OPS+', 25], ['W-L', 25], ...['AB', 'H', '2B', '3B', 'HR', 'BB', 'HBP', 'SF'].map((l) => [l, 17]), ['OBP', 28], ['SLG', 28], ['OPS', 28]].map(([label, w]) => ({ label: label as string, w: w as number }));
-const PIT_COLS: Col[] = [['FIP-', 25], ['W-L', 25], ...['IP', 'H', 'R', 'ER', 'HR', 'BB', 'HBP', 'K'].map((l) => [l, 17]), ['WHIP', 28], ['K/BB', 28], ['FIP', 28]].map(([label, w]) => ({ label: label as string, w: w as number }));
+const BAT_COLS: Col[] = [['OPS+', 25], ...['AB', 'H', '2B', '3B', 'HR', 'BB', 'HBP', 'SF'].map((l) => [l, 17]), ['OBP', 28], ['SLG', 28], ['OPS', 28], [CLUB_WL_LABEL, 25]].map(([label, w]) => ({ label: label as string, w: w as number }));
+const PIT_COLS: Col[] = [['FIP-', 25], ...['IP', 'H', 'R', 'ER', 'HR', 'BB', 'HBP', 'K'].map((l) => [l, 17]), ['WHIP', 28], ['K/BB', 28], ['FIP', 28], [CLUB_WL_LABEL, 25]].map(([label, w]) => ({ label: label as string, w: w as number }));
 // Row lines come from the table's own rules (no per-cell styling), which keeps the
 // email under Gmail's 102 KB clipping limit.
 const GRID = `<table width="100%" cellpadding="0" cellspacing="0" border="1" frame="void" rules="rows" role="presentation" style="width:100%;table-layout:fixed;border-collapse:collapse;border-color:${LINE};margin:0 0 18px;font:11px/21px ${FONT};color:#121212;white-space:nowrap">`;
@@ -152,26 +154,36 @@ const fitRow = (cells: string[], cols: Col[], bold: boolean) => fitCells(cells, 
 
 function tables(t: GazetteTables): { html: string; text: string[] } {
   const bat = [GRID, gridHead('BATTERS', BAT_COLS)];
-  const text: string[] = ['BATTERS | OPS+ | W-L | AB | H | 2B | 3B | HR | BB | HBP | SF | OBP | SLG | OPS'];
+  const text: string[] = [['BATTERS', ...BAT_COLS.map(c => c.label)].join(' | ')];
+  // Plain-text editions use exactly the same ordered numeric cells as HTML.
+  const textRow = (name: string, cells: string[]) => [name, ...cells.map(c => c.replace(/<[^>]+>/g, ''))].join(' | ');
   const sum = Array(9).fill(0);
   for (const row of t.batters) {
     row.b.forEach((v, i) => { sum[i] += v; });
-    bat.push(rowOpen(row.bold) + nameCell(row) + fitRow([goldCell(dash(row.b[0] > 0 ? row.opsPlus : null)), cell(wlText(row.wl)), ...batCells(row.b)], BAT_COLS, !!row.bold) + '</tr>');
-    text.push([row.name, dash(row.opsPlus), wlText(row.wl), ...row.b.slice(1)].join(' | '));
+    const values = [goldCell(dash(row.b[0] > 0 ? row.opsPlus : null)), ...batCells(row.b), cell(wlText(row.wl))];
+    bat.push(rowOpen(row.bold) + nameCell(row) + fitRow(values, BAT_COLS, !!row.bold) + '</tr>');
+    text.push(textRow(row.name, values));
   }
-  bat.push(totalRow('BATTERS', fitCells([goldCell(dash(t.teamOpsPlus)), cell(wlText(t.totalWl)), ...batCells(sum)], BAT_COLS, true)) + '</table>');
+  const batTotal = [goldCell(dash(t.teamOpsPlus)), ...batCells(sum), cell(wlText(t.totalWl))];
+  bat.push(totalRow('BATTERS', fitCells(batTotal, BAT_COLS, true)) + '</table>');
+  text.push(textRow('BATTERS', batTotal));
   const pit = [GRID, gridHead('PITCHERS', PIT_COLS)];
-  text.push('PITCHERS | FIP- | W-L | IP | H | R | ER | HR | BB | HBP | K');
+  text.push(['PITCHERS', ...PIT_COLS.map(c => c.label)].join(' | '));
   const tot = { outs: 0, h: 0, r: 0, er: 0, hr: 0, bb: 0, hbp: 0, k: 0 };
   let fipSum = 0, fipOuts = 0;
   for (const row of t.pitchers) {
     (Object.keys(tot) as (keyof typeof tot)[]).forEach((key) => { tot[key] += row[key]; });
     if (row.fip != null && row.outs) { fipSum += row.fip * row.outs; fipOuts += row.outs; }
-    pit.push(rowOpen(row.bold) + nameCell(row) + fitRow([goldCell(dash(row.outs > 0 ? row.fipMinus : null)), cell(wlText(row.wl)), ...pitchCells(row, row.outs ? row.fip : null)], PIT_COLS, !!row.bold) + '</tr>');
-    text.push([row.name, dash(row.fipMinus), wlText(row.wl), ipOf(row.outs), row.h, row.r, row.er, row.hr, row.bb, row.hbp, row.k].join(' | '));
+    const values = [goldCell(dash(row.outs > 0 ? row.fipMinus : null)), ...pitchCells(row, row.outs ? row.fip : null), cell(wlText(row.wl))];
+    pit.push(rowOpen(row.bold) + nameCell(row) + fitRow(values, PIT_COLS, !!row.bold) + '</tr>');
+    text.push(textRow(row.name, values));
   }
-  pit.push(totalRow('PITCHERS', fitCells([goldCell(dash(t.teamFipMinus)), cell(wlText(t.totalWl)), ...pitchCells(tot, fipOuts ? fipSum / fipOuts : null)], PIT_COLS, true)) + '</table>');
-  return { html: bat.join('\n') + '\n' + pit.join('\n'), text };
+  const pitTotal = [goldCell(dash(t.teamFipMinus)), ...pitchCells(tot, fipOuts ? fipSum / fipOuts : null), cell(wlText(t.totalWl))];
+  pit.push(totalRow('PITCHERS', fitCells(pitTotal, PIT_COLS, true)) + '</table>');
+  text.push(textRow('PITCHERS', pitTotal));
+  const key = clubWlKey('week');
+  text.push(key);
+  return { html: bat.join('\n') + '\n' + pit.join('\n') + '<p style="margin:0 14px 14px;font:11px/1.4 Arial,Helvetica,sans-serif;color:#666;white-space:normal">' + esc(key) + '</p>', text };
 }
 
 // A scoreboard picture across the newsletter's full width (720px).
@@ -210,7 +222,7 @@ export function renderWeeklyGazetteLayout(input: WeeklyGazetteInput): { html: st
     `<div style="padding:26px 8px 24px;border-bottom:3px solid #202820"><div style="padding:0 14px"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">${esc(school)} Alumni Weekly Stats</h2><p style="margin:0 0 4px;text-align:left;font:bold 14px Arial,Helvetica,sans-serif">${esc(weekOf)}</p>`,
     `<p style="margin:0 0 16px;text-align:left;font:12px Arial,Helvetica,sans-serif;color:#666">${esc(school)}'s ${input.alumniCount} active alumni. Your favorites are in bold.</p></div>`,
     alumni.html,
-    `<div style="padding:0 14px"><p style="margin:0 0 14px;font:11px Arial,Helvetica,sans-serif;color:#666">OPS+, FIP- and club W-L come from each school's bracket game and show a dash for players outside ${esc(school)}'s.</p>`,
+    `<div style="padding:0 14px"><p style="margin:0 0 14px;font:11px Arial,Helvetica,sans-serif;color:#666">OPS+ and FIP- come from each school's bracket game and show a dash for players outside ${esc(school)}'s.</p>`,
     drawer ? `<p style="margin:0;text-align:left;font:bold 13px Arial,Helvetica,sans-serif"><a href="${esc(drawer)}" style="color:#19583f">See each day of the week in the stat drawer →</a></p>` : '',
     `</div></div>`,
     favs && input.favorites ? `<div style="padding:26px 8px 24px;border-bottom:3px solid #202820"><div style="padding:0 14px"><h2 style="margin:0 0 4px;font:bold 28px/1.15 Georgia,serif;text-align:left;text-transform:uppercase">SuperFan Weekly Stats</h2>`
