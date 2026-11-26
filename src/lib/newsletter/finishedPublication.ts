@@ -107,7 +107,7 @@ export async function readNewsletterPreferences(db: ReadDatabase, request: Newsl
   const primary = ordered[0];
   if (!validSchool(primary)) throw new Error('Recipient has no valid home school');
   const superfan = accounts.some(row => row.is_superfan === true);
-  const recipient = {...primary, email, is_superfan: superfan, plan: superfan ? 'superfan' : 'fan',
+  const recipient: Row = {...primary, email, is_superfan: superfan, plan: superfan ? 'superfan' : 'fan',
     ...(accounts.length > 1 ? { account_uids: accounts.map(row => String(row.firebase_uid)).sort() } : {})};
   const favoriteRows = (await db.query("SELECT to_jsonb(f)->>'yatid' AS yatid FROM newsletter_favorites f WHERE firebase_uid=ANY($1::text[])", [accounts.map(row => String(row.firebase_uid))])).rows;
   const favorites = [...new Set(favoriteRows.map(row => yat(row.yatid)))].sort();
