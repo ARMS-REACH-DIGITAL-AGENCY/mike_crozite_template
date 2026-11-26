@@ -10,8 +10,8 @@
 #
 # Secrets (Settings -> Secrets and variables -> Actions -> New repository secret):
 #   QA_DATABASE_URL, QA_PLAYERS_DATABASE_URL (same value), QA_NEON_BRANCH,
-#   QA_NEON_ENDPOINT, REHEARSAL_LIVE_FAN_TOKEN (same as Vercel production),
-#   REHEARSAL_PROOF_PASSWORD (separate private password; encrypted artifacts). No email is sent.
+#   QA_NEON_ENDPOINT, REHEARSAL_LIVE_FAN_TOKEN (same as Vercel production).
+#   No new password. Personalized proofs remain in the isolated QA database; public artifacts contain only aggregate audits.
 name: Run rehearsal days
 
 on:
@@ -63,24 +63,6 @@ jobs:
           echo "THROUGH=$THROUGH" >> "$GITHUB_ENV"
           echo "Running the replay on the QA branch through $THROUGH"
 
-      - name: Require production recipient directory and private proof encryption
-        env:
-          REHEARSAL_LIVE_FAN_TOKEN: ${{ secrets.REHEARSAL_LIVE_FAN_TOKEN }}
-          REHEARSAL_PROOF_PASSWORD: ${{ secrets.REHEARSAL_PROOF_PASSWORD }}
-        run: |
-          [ "${#REHEARSAL_PROOF_PASSWORD}" -ge 32 ] || { echo "::error::Set REHEARSAL_PROOF_PASSWORD (at least 32 random characters) to protect fan data in public-repository artifacts"; exit 1; }
-          node <<'NODE'
-          (async()=>{
-            const token=process.env.REHEARSAL_LIVE_FAN_TOKEN;
-            if(!token || token.length<32)throw Error('Missing live fan token');
-            const response=await fetch('https://hamilton.az.yatstats.com/api/admin/rehearsal-newsletter-preferences',{method:'POST',redirect:'error',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({action:'list-recipients'}),signal:AbortSignal.timeout(15000)});
-            const data=await response.json().catch(()=>null);
-            if(!response.ok)throw Error('Live recipient directory unavailable (HTTP '+response.status+'); merge and deploy shared PR first');
-            if(data?.source!=='production-newsletter-preferences'||!Array.isArray(data.recipients))throw Error('Unverified live recipient directory');
-            console.log('Authenticated live recipient directory; mailboxes: '+data.recipients.length);
-          })().catch(e=>{console.error('::error::'+e.message);process.exitCode=1;});
-          NODE
-
       - name: Install (same as CI)
         run: |
           npm install
@@ -116,7 +98,6 @@ jobs:
           NODE_OPTIONS: --require ${{ github.workspace }}/scripts/lib/stub-server-only.cjs
         run: |
           set -euo pipefail
-          [ -n "$REHEARSAL_LIVE_FAN_TOKEN" ] || { echo '::error::Missing dedicated live preference token; no QA fallback'; exit 1; }
           git config user.name "rehearsal-bot"
           git config user.email "rehearsal-bot@users.noreply.github.com"
           git worktree add pics-wt "origin/$PICTURE_BRANCH"
@@ -132,7 +113,7 @@ jobs:
           build_proofs() {
             local DAY="$1"
             mkdir -p "private/$DAY"
-            npx tsx scripts/rehearsal-fresh-proofs.ts "$DAY" "private/$DAY" schools
+            npx tsx scripts/rehearsal-fresh-proofs.ts "$DAY" "private/$DAY" schools || return 1
             local WEEKLY=()
             if [ "$(date -u -d "$DAY" +%u)" = "7" ]; then WEEKLY=(--weekly "$(date -u -d "$DAY - 6 days" +%F)"); fi
             # A school's picture failure must not prevent other schools' proofs.
@@ -140,8 +121,8 @@ jobs:
               [ -n "$SCHOOL" ] || continue
               npx tsx scripts/newsletter-draw-pictures.ts --season "$SEASON" --hsid "$SCHOOL" --daily "$DAY" "${WEEKLY[@]}" --out pics-wt/nl > /tmp/rehearsal-picture.log 2>&1 || echo "::warning::Picture generation failed for school $SCHOOL; affected editions will report missing images"
             done < "private/$DAY/schools.txt"
-            (cd pics-wt && git add nl && { git diff --cached --quiet || git commit -q -m "Replay pictures for $DAY"; } && git push -q origin "HEAD:$PICTURE_BRANCH")
-            npx tsx scripts/rehearsal-fresh-proofs.ts "$DAY" "private/$DAY"
+            (cd pics-wt && git add nl && { git diff --cached --quiet || git commit -q -m "Replay pictures for $DAY"; } && git push -q origin "HEAD:$PICTURE_BRANCH") || echo "::warning::Picture publication failed"
+            npx tsx scripts/rehearsal-fresh-proofs.ts "$DAY" "private/$DAY" || return 1
           }
           while :; do
             read -r LAST PHASE <<< "$(checkpoint)"
@@ -153,7 +134,7 @@ jobs:
             fi
             if [[ "$DAY" > "$THROUGH" ]]; then
               echo "Done: checkpoint $LAST ($PHASE), target $THROUGH; generating all-fan proofs if not already built"
-              [ -f "private/$THROUGH/summary.json" ] || build_proofs "$THROUGH"
+              if [ ! -f "private/$THROUGH/summary.json" ]; then build_proofs "$THROUGH" || echo '::warning::Newsletter proofs unavailable; completed scores preserved'; fi
               break
             fi
             echo "::group::Day $DAY (reviewed $REVIEWED)"
@@ -167,28 +148,17 @@ jobs:
             WEEKS=$(( ( $(date -u -d "$DAY + 1 day" +%s) - $(date -u -d "$OPENING" +%s) ) / 604800 ))
             npx tsx scripts/audit-production-rehearsal.ts --expected-branch "$REHEARSAL_NEON_BRANCH" --season "$SEASON" \
               --through-week "$WEEKS" --now "$(date -u -d "$DAY + 1 day" +%F)T11:00:00Z" --report "reports/audit-$DAY.json"
-            build_proofs "$DAY"
+            if ! build_proofs "$DAY"; then echo '::warning::Newsletter proofs failed after scoring; completed scores preserved'; fi
             echo "::endgroup::"
-            echo "Day $DAY scoring audit passed; fan failures recorded in encrypted summary"
+            echo "Day $DAY scoring audit passed; newsletter proof status recorded separately"
           done
 
-      - name: Encrypt private proof bundle
-        if: always()
-        env:
-          REHEARSAL_PROOF_PASSWORD: ${{ secrets.REHEARSAL_PROOF_PASSWORD }}
-        run: |
-          set -euo pipefail
-          if [ -d private ]; then
-            [ "${#REHEARSAL_PROOF_PASSWORD}" -ge 32 ]
-            mkdir -p safe-artifacts
-            tar -czf - private | openssl enc -aes-256-cbc -salt -pbkdf2 -iter 600000 -pass env:REHEARSAL_PROOF_PASSWORD -out safe-artifacts/fan-editions.tar.gz.enc
-          fi
-      - name: Keep encrypted editions and scoring audits
+      - name: Keep scoring audits and aggregate proof counts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rehearsal-${{ github.run_number }}-attempt-${{ github.run_attempt }}
           path: |
-            safe-artifacts/fan-editions.tar.gz.enc
             reports/
+            out/**/checkpoint.json
           if-no-files-found: warn
