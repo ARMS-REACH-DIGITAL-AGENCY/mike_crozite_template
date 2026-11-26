@@ -26,12 +26,13 @@ function escapeTeamText(value: unknown) {
 }
 
 type Props =
-  | { mode?: 'player'; playerOnly?: boolean; onPlayer: (p: ContributePlayer) => void; onSchool?: never; onTeam?: never }
+  | { mode?: 'player'; playerOnly?: boolean; tagPicker?: boolean; onPlayer: (p: ContributePlayer) => void; onSchool?: never; onTeam?: never }
   | { mode: 'school'; onSchool: (s: ContributeSchool) => void; onPlayer?: never; onTeam?: never }
   | { mode: 'team' | 'college'; onTeam: (t: ContributeTeam) => void; onPlayer?: never; onSchool?: never };
 
 export default function ContributeSearch(props: Props) {
   const playerOnly = 'playerOnly' in props && Boolean(props.playerOnly);
+  const tagPicker = 'tagPicker' in props && Boolean(props.tagPicker);
   const schoolOnly = props.mode === 'school';
   const teamOnly = props.mode === 'team' || props.mode === 'college';
   const collegeOnly = props.mode === 'college';
@@ -58,8 +59,8 @@ export default function ContributeSearch(props: Props) {
             playerId: p.playerid, displayName: p.display_name, firstname: p.firstname, lastname: p.lastname,
             schoolId: rosterOf.hsid, schoolName: rosterOf.name, currentTeamName: p.current_team_name,
           }));
-          el.innerHTML = renderPlayerRows(players, 'No players found for this school.');
-          hydrateFavoriteButtons(el);
+          el.innerHTML = renderPlayerRows(players, 'No players found for this school.', {tagPicker});
+          if(!tagPicker)hydrateFavoriteButtons(el);
           return;
         }
         if (!term) {
@@ -70,8 +71,8 @@ export default function ContributeSearch(props: Props) {
         if (mode === 'name') {
           const data = await fetchJson(`/api/players/search?q=${encodeURIComponent(term)}&limit=60`);
           if (!live) return;
-          el.innerHTML = renderPlayerRows(Array.isArray(data.players) ? data.players : [], 'No player matches.');
-          hydrateFavoriteButtons(el);
+          el.innerHTML = renderPlayerRows(Array.isArray(data.players) ? data.players : [], 'No player matches.', {tagPicker});
+          if(!tagPicker)hydrateFavoriteButtons(el);
         } else if (mode === 'school') {
           const data = await fetchJson(`/api/schools/search?q=${encodeURIComponent(term)}&limit=30`);
           if (!live) return;
@@ -97,8 +98,8 @@ export default function ContributeSearch(props: Props) {
               </button>`;
             }).join('')}</div>` : `<div class="yat-search-empty">${collegeOnly ? 'No college matches.' : 'No college or pro team matches.'}</div>`;
           } else {
-            el.innerHTML = renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.');
-            hydrateFavoriteButtons(el);
+            el.innerHTML = renderTeamRows(Array.isArray(data.teams) ? data.teams : [], 'No current team matches.', {tagPicker});
+            if(!tagPicker)hydrateFavoriteButtons(el);
           }
         }
       } catch {
@@ -106,7 +107,7 @@ export default function ContributeSearch(props: Props) {
       }
     }, rosterOf ? 0 : 180);
     return () => { live = false; window.clearTimeout(timer); };
-  }, [q, mode, rosterOf, teamOnly, collegeOnly]);
+  }, [q, mode, rosterOf, teamOnly, collegeOnly, tagPicker]);
 
   // A result picks the player (or school) here instead of opening his page.
   useEffect(() => {

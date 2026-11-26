@@ -554,7 +554,7 @@ export function StoryThread({
             <button type="button" aria-label={"Remove tag for " + tag.name} disabled={busy === "save"} onClick={() => setEditing((prev) => prev ? { ...prev, tags: prev.tags.filter((p) => p.playerId !== tag.playerId) } : null)}>×</button>
           </span>)}
         </div>}
-        {editing.tags.length < STORY_MAX_TAGS && busy !== "save" && <ContributeSearch onPlayer={(candidate) => {
+        {editing.tags.length < STORY_MAX_TAGS && busy !== "save" && <ContributeSearch tagPicker onPlayer={(candidate) => {
           const primaryId = story.players.find((p) => p.isPrimary)?.playerId || playerId;
           if (!candidate.playerId || candidate.playerId === primaryId) return;
           setEditing((prev) => !prev || prev.tags.length >= STORY_MAX_TAGS || prev.tags.some((p) => p.playerId === candidate.playerId)
@@ -980,7 +980,7 @@ export function StoryStyles() {
       .ysv-btn:disabled { opacity: .55; cursor: default; }
       .ysv-counts { display: flex; justify-content: space-between; align-items: center; padding: 8px 2px; color: var(--ysv-muted); font: 400 13px/1 system-ui, sans-serif; }
       .ysv-like-dot { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--ysv-gold); color: #000; font-size: 11px; vertical-align: -3px; }
-      .ysv-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--ysv-line); border-bottom: 1px solid var(--ysv-line); }
+      .ysv-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--ysv-line); border-bottom: 1px solid var(--ysv-line); }
       .ysv-actions > button, .ysv-actions > .ypt-wrap > button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; border: 0; background: transparent; color: var(--ysv-text); font: 400 16px/1 "Bebas Neue", Oswald, sans-serif; letter-spacing: .06em; cursor: pointer; border-radius: 6px; }
       .ysv-actions > button i, .ysv-actions > .ypt-wrap > button i { font-size: 18px; }
       .ysv-actions > button:hover, .ysv-actions > .ypt-wrap > button:hover { background: var(--ysv-hover); }
@@ -1047,10 +1047,12 @@ export function StoryStyles() {
       .ysv-post .ysv-note, .ysv-post .ysv-confirm { margin-left: 16px; margin-right: 16px; padding-left: 0; padding-right: 0; }
       @media (max-width: 760px) {
         .ysv { padding: 0; align-items: stretch; }
-        .ysv-card { grid-template-columns: 1fr; grid-template-rows: minmax(0, 42dvh) minmax(0, 1fr); width: 100%; height: 100dvh; border-radius: 0; border: 0; }
+        .ysv-card { grid-template-columns: 1fr; grid-template-rows: minmax(0, 32dvh) minmax(0, 1fr); width: 100%; height: 100dvh; border-radius: 0; border: 0; }
         .ysv-side { border-left: 0; border-top: 1px solid var(--ysv-line); }
         /* Photo and Comment open the identical two-pane viewer. Only focus changes.
            Keep the original photo visible above the independently scrolling discussion. */
+        .ysv-actions > button, .ysv-actions > .ypt-wrap > button {min-width:0;padding:0 3px;gap:3px;letter-spacing:0;font-size:13px;white-space:nowrap;}
+        .ysv-actions > button i, .ysv-actions > .ypt-wrap > button i {font-size:15px;}
         .ysv-card .ysv-composer {flex-shrink:0;padding-bottom:max(12px,env(safe-area-inset-bottom));}
         .ysv-card .ysv-composer textarea {min-height:min(112px,28dvh);max-height:min(220px,40dvh);font-size:16px;}
       }
