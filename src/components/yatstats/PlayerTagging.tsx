@@ -29,9 +29,10 @@ export default function PlayerTagging({endpoint,initial=[],onUpdated,buttonClass
     try{
       const r=await fetch(endpoint,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json',...(await authHeaders())},body:JSON.stringify({...payload,action,playerId})});
       const j=await r.json().catch(()=>({}));
-      if(r.status===401){openSignIn();return;}
+      if(r.status===401){setNote('Please sign in, then select the player again.');openSignIn();return;}
       if(!r.ok)throw Error(j.error||'Could not update tags.');
-      if(Array.isArray(j.players)){setTags(j.players);setLoaded(true);onUpdated?.(j.players);}
+      if(!Array.isArray(j.players))throw Error('The server did not confirm the tag. Please try again.');
+      setTags(j.players);setLoaded(true);onUpdated?.(j.players);
       window.dispatchEvent(new CustomEvent('yat:player-tags-changed',{detail:{endpoint,playerId,action}}));
       if(endpoint.startsWith('/api/stories/'))window.dispatchEvent(new CustomEvent('yat:story-posted'));
       setNote(action==='tag'?'Player tagged.':'Tag removed.');
@@ -46,9 +47,9 @@ export default function PlayerTagging({endpoint,initial=[],onUpdated,buttonClass
     {open&&<div className="ypt-panel">
       <strong>Tag players in this memory</strong>
       {secondary.length>0&&<div className="ypt-tags">{secondary.map(p=><span className="ypt-person" key={p.playerId}>{p.name}{(p.taggedByMe||p.canRemove)&&<button type="button" disabled={busy} aria-label={'Remove '+p.name} onClick={()=>void mutate('untag',p.playerId)}>×</button>}</span>)}</div>}
-      {secondary.length<20?<ContributeSearch onPlayer={p=>{if(p.playerId&&!tags.some(t=>t.playerId===p.playerId))void mutate('tag',p.playerId)}}/>:<small>20 tags maximum.</small>}
+      {secondary.length<20?<ContributeSearch onPlayer={p=>{if(!p.playerId){setNote('Choose a player from search.');return;}if(tags.some(t=>t.playerId===p.playerId)){setNote('This player is already in this memory.');return;}void mutate('tag',p.playerId)}}/>:<small>20 tags maximum.</small>}
       {loaded&&<small>{secondary.length} of 20 tagged</small>}
-      {note&&<div className="ypt-note" role="status">{note}</div>}
+      {(busy||note)&&<div className="ypt-note" role="status">{busy?'Saving tags…':note}</div>}
     </div>}
     <style jsx global>{`
       /* Restore the pre-tag three-button Like / Comment / Share layout.
@@ -56,18 +57,26 @@ export default function PlayerTagging({endpoint,initial=[],onUpdated,buttonClass
          card below it, instead of squeezing into a fourth grid cell. */
       .ypt-wrap{display:contents}
       .ypt-wrap>button{grid-column:1/-1;justify-self:end;width:auto;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:0 14px;white-space:nowrap;background:transparent;border:0;color:inherit;font:inherit;cursor:pointer}
-      .ypt-panel{position:relative;grid-column:1/-1;z-index:5;box-sizing:border-box;width:100%;min-width:0;max-width:100%;padding:12px;margin:0 0 12px;border:1px solid var(--ysv-input-border,#777);border-radius:8px;background:var(--ysv-menu-bg,#191919);color:var(--ysv-fg,#fff);box-shadow:0 8px 16px #0004;overflow:visible}
-      .ypt-panel .ycs{min-width:0;max-width:100%}
+      .ypt-panel{position:relative;grid-column:1/-1;z-index:5;box-sizing:border-box;width:100%;min-width:0;max-width:100%;padding:12px;margin:0 0 12px;--ypt-bg:#191919;--ypt-fg:#fff;--ypt-input:#292929;--ypt-border:#666;--ypt-muted:#bdbdbd;--ypt-accent:#d9bd80;border:1px solid var(--ypt-border);border-radius:8px;background:var(--ypt-bg);color:var(--ypt-fg);box-shadow:0 8px 16px #0004;overflow:visible}
+      .ypt-panel .ycs{min-width:0;max-width:100%;color:var(--ypt-fg);--fg:var(--ypt-fg);--line:var(--ypt-border);--accent:var(--ypt-accent)}
+      body.light-theme .ypt-panel{--ypt-bg:#fffdf8;--ypt-fg:#1f1912;--ypt-input:#fff;--ypt-border:#a69f95;--ypt-muted:#555;--ypt-accent:#795500}
+      .ypt-panel .ycs .yat-gs-input-wrap input.yat-gs-input{color:var(--ypt-fg)!important;background:var(--ypt-input)!important;border-color:var(--ypt-border)!important}
+      .ypt-panel .ycs .yat-gs-input-wrap input.yat-gs-input::placeholder{color:var(--ypt-muted);opacity:1}
+      .ypt-panel .ycs .yat-gs-input-icon,.ypt-panel .ycs .yat-search-mode-btn,.ypt-panel .ycs .yat-search-player-result,.ypt-panel .ycs .yat-search-school-card,.ypt-panel .ycs .yat-search-player-text-link,.ypt-panel .ycs .yat-search-player-text-link strong,.ypt-panel .ycs .yat-search-fav-btn,.ypt-panel .ycs .yat-search-section-label,.ypt-panel .ycs .yat-search-empty,.ypt-panel .ycs .ycs-back{color:var(--ypt-fg)!important}
+      .ypt-panel .ycs .yat-search-mode-btn,.ypt-panel .ycs .yat-search-player-result,.ypt-panel .ycs .yat-search-school-card{background:var(--ypt-input)!important;border-color:var(--ypt-border)!important}
+      .ypt-panel .ycs .yat-search-mode-btn.active{border-color:var(--ypt-fg)!important;box-shadow:inset 0 0 0 1px var(--ypt-fg)}
+      .ypt-panel .ycs .yat-search-player-text-link .yat-search-hs-line{color:var(--ypt-accent)!important}
+      .ypt-panel .ycs .yat-search-mode-btn:focus-visible,.ypt-panel .ycs .yat-search-player-result:focus-within{outline:2px solid var(--ypt-accent);outline-offset:2px}
       .ypt-panel .ycs .yat-gs-input-wrap input.yat-gs-input{box-sizing:border-box;width:100%;min-width:0;padding:10px 34px 10px 43px}
       .ypt-panel .ycs .yat-gs-input-wrap .yat-gs-input-icon{position:absolute;left:13px;right:auto;top:50%;transform:translateY(-50%);pointer-events:none}
       .ypt-panel .ycs .yat-search-mode-buttons{min-width:0;width:100%}
       .ypt-panel .ycs .yat-search-mode-btn{white-space:normal;overflow-wrap:normal}
-      .ypt-panel strong{display:block;font:700 13px/1.3 Arial,sans-serif;margin-bottom:8px}
+      .ypt-panel>strong{display:block;font:700 13px/1.3 Arial,sans-serif;margin-bottom:8px}
       .ypt-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
-      .ypt-person{display:inline-flex;gap:5px;align-items:center;border:1px solid #8887;border-radius:5px;padding:4px 7px;font:500 12px/1.2 Arial,sans-serif}
+      .ypt-person{display:inline-flex;gap:5px;align-items:center;border:1px solid var(--ypt-border);border-radius:5px;padding:4px 7px;font:500 12px/1.2 Arial,sans-serif}
       .ypt-person button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:19px;padding:0 3px}
       .ypt-note{font:500 12px/1.4 Arial,sans-serif;margin-top:8px}
-      .ypt-panel .ycs-results{max-height:180px;overflow:auto}
+      .ypt-panel .ycs-results{max-height:180px!important;overflow:auto!important}
     `}</style>
   </div>;
 }
