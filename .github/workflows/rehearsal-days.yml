@@ -11,7 +11,8 @@
 # Secrets (Settings -> Secrets and variables -> Actions -> New repository secret):
 #   QA_DATABASE_URL, QA_PLAYERS_DATABASE_URL (same value), QA_NEON_BRANCH,
 #   QA_NEON_ENDPOINT (the pooled host of QA_DATABASE_URL), QA_REVIEW_EMAIL (the one
-#   registered fan address the review copies are built for). No email is sent.
+#   registered fan address the review copies are built for), REHEARSAL_LIVE_FAN_TOKEN
+#   (dedicated read-only endpoint token, same as Vercel production). No email is sent.
 name: Run rehearsal days
 
 on:
@@ -35,7 +36,7 @@ jobs:
       PLAYERS_DATABASE_URL: ${{ secrets.QA_PLAYERS_DATABASE_URL }}
       REHEARSAL_NEON_BRANCH: ${{ secrets.QA_NEON_BRANCH }}
       REHEARSAL_NEON_ENDPOINT: ${{ secrets.QA_NEON_ENDPOINT }}
-      REVIEW_EMAIL: ${{ secrets.QA_REVIEW_EMAIL }}
+      REVIEW_EMAIL: pcdaction@gmail.com
       SEASON: '2027'
       OPENING: '2026-03-23'
       HSID: '5004'
@@ -89,6 +90,7 @@ jobs:
 
       - name: Run each day through the target date
         env:
+          REHEARSAL_LIVE_FAN_TOKEN: ${{ secrets.REHEARSAL_LIVE_FAN_TOKEN }}
           NEWSLETTER_BOARD_IMAGE_BASE: ${{ env.NL }}/digest
           NEWSLETTER_GAZETTE_BANNER_BASE: ${{ env.NL }}/gazette/banner
           NEWSLETTER_TEAM_LOGO_BASE: ${{ env.NL }}/gazette/logo
@@ -98,6 +100,7 @@ jobs:
           NODE_OPTIONS: --require ${{ github.workspace }}/scripts/lib/stub-server-only.cjs
         run: |
           set -euo pipefail
+          [ -n "$REHEARSAL_LIVE_FAN_TOKEN" ] || { echo '::error::Missing dedicated live preference token; no QA fallback'; exit 1; }
           git config user.name "rehearsal-bot"
           git config user.email "rehearsal-bot@users.noreply.github.com"
           git worktree add pics-wt "origin/$PICTURE_BRANCH"
@@ -118,7 +121,11 @@ jobs:
             else
               DAY=$LAST; REVIEWED=$(date -u -d "$LAST - 1 day" +%F)   # finish a day that stopped part-way
             fi
-            if [[ "$DAY" > "$THROUGH" ]]; then echo "Done: checkpoint $LAST ($PHASE), target $THROUGH"; break; fi
+            if [[ "$DAY" > "$THROUGH" ]]; then
+              echo "Done: checkpoint $LAST ($PHASE), target $THROUGH; rebuilding fresh owner proofs only"
+              npx tsx scripts/rehearsal-fresh-proofs.ts "$THROUGH" "out/$THROUGH/fresh"
+              break
+            fi
             echo "::group::Day $DAY (reviewed $REVIEWED)"
 
             npx tsx scripts/rehearse-production-bracket.ts --day "$DAY" --reviewed-day "$REVIEWED" --season "$SEASON" \

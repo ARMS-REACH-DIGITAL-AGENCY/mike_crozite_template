@@ -2,7 +2,7 @@ import type { Pool } from 'pg';
 import {
   publishDaily, publishWeekly, verifyPublicationDatabase, type PublishOptions,
 } from '../../../scripts/newsletter-publish';
-import { readFinishedEdition, renderFinishedEdition, type Cadence, type RenderedEdition } from './finishedPublication';
+import { readFinishedEdition, renderFinishedEdition, type Cadence, type RenderedEdition, type NewsletterPreferenceLoader } from './finishedPublication';
 
 const DAY = 86400000;
 export const publicationDayAfter = (day: string, offset = 1) =>
@@ -68,13 +68,18 @@ export async function publishNewsletterDay(pool: Pool, opts: NewsletterDayOption
 
 /** The live sender and rehearsal archive use the same finished-row reader. */
 export async function readNewsletterReview(pool: Pool, request: {
-  cadence: Cadence; date: string; email: string; seasonKey: string; baseUrl?: string;
-}) {
+  cadence: Cadence; date: string; email: string; seasonKey: string; baseUrl?: string; firebaseUid?: string; reviewBaseUrl?: string;
+}, loadPreferences?: NewsletterPreferenceLoader) {
   const db = await pool.connect();
   try {
     await db.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-    const facts = await readFinishedEdition(db, request);
+    const facts = await readFinishedEdition(db, request, loadPreferences);
     let baseUrl = request.baseUrl;
+    if (!baseUrl && request.reviewBaseUrl) {
+      const url = new URL('/' + facts.recipient.home_hsid, request.reviewBaseUrl);
+      url.hash = 'sec-fantasy';
+      baseUrl = url.toString();
+    }
     if (!baseUrl) {
       const { rows: [school] } = await db.query<{ microsite_url: string | null }>(
         'SELECT microsite_url FROM public.school_success WHERE hsid::text=$1', [String(facts.recipient.home_hsid)],
