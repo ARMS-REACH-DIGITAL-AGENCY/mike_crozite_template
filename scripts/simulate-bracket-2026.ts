@@ -46,6 +46,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  buildWeeklyPerformancePool,
   type Absent,
   type BatTotals,
   type Baselines,
@@ -477,8 +478,15 @@ function weekSource(hsid: number, week: number) {
 }
 
 type GameRow = { week: number; home: number; away: number; score: [number, number]; winner: number | null; decidedBy: GameResult['decidedBy']; tieRank?: number; innings: [number, number][]; real: [number, number]; simulated: [number, number] };
+const percentilePools = new Map<number, ReturnType<typeof buildWeeklyPerformancePool>>();
+function poolForWeek(week: number) {
+  if (!percentilePools.has(week)) percentilePools.set(week, buildWeeklyPerformancePool(
+    [...schools.keys()].map(hsid => sideWeek(hsid, week)), baselines, RULES.mode,
+  ));
+  return percentilePools.get(week)!;
+}
 function game(week: number, home: number, away: number, allowTie = false): GameRow {
-  const r = playGame(sideWeek(home, week), sideWeek(away, week), baselines, RULES, allowTie, coinFlip(week, home, away));
+  const r = playGame(sideWeek(home, week), sideWeek(away, week), baselines, RULES, allowTie, coinFlip(week, home, away), undefined, poolForWeek(week));
   const hs = weekSource(home, week), as = weekSource(away, week);
   return {
     week, home, away,
@@ -803,15 +811,15 @@ function exportGallery(dir: string) {
   }
   function gameOut(file: string, g: GameRow) {
     const id = ++gid;
-    const r = playGame(sideWeek(g.home, g.week), sideWeek(g.away, g.week), baselines, RULES, g.winner === null);
+    const r = playGame(sideWeek(g.home, g.week), sideWeek(g.away, g.week), baselines, RULES, g.winner === null, undefined, undefined, poolForWeek(g.week));
     const days = r.innings.slice(0, 8).map((i) => [round1(i.homeOffense), round1(i.awayOffense), round1(i.homePitching), round1(i.awayPitching)]);
     if (!details.has(file)) details.set(file, {});
     const hs = side(g.home, g.week), as = side(g.away, g.week);
     details.get(file)![id] = { d: days, h: hs, a: as };
     award(g.home, g.week, hs.p);
     award(g.away, g.week, as.p);
-    // 'players-2' = the tie went to the #2 hitter/pitcher inning. The
-    // engine already includes innings 10+ (and a one-run coin-flip inning,
+    // 'players-2' = the tie went to internal matchup stage #2. The
+    // engine already includes exactly one winning 10th-inning run (including a coin-flip,
     // when needed), so persist the line score exactly once.
     const savedInnings = g.innings.flat();
     return [id, g.week, g.home, g.away, g.decidedBy === 'players' ? `players-${g.tieRank}` : g.decidedBy, savedInnings, g.winner];
