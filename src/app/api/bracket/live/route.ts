@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSeasonUsageByPlayerIds, query } from '@/lib/db';
 import { isFantasyRosterStatus, releasedDuringPeriod } from '@/lib/galleryStatuses';
 import { BRACKET_LIVE_BATCH_SIZE } from '@/lib/bracket/fetchLiveBatches';
+import type { ClubStint } from '@/components/bracket/liveSeason';
 import {
   allowClubResultFallback, isBracketGameDone as isDone, isBracketGameFinal as isFinal, isBracketGameType,
   missingScheduleGameIds, scheduleAuthority, type ScheduleFact,
@@ -176,11 +177,33 @@ export async function GET(req: NextRequest) {
         [ids, start, weeks * 7],
       )
       : { rows: [] as LineRow[] };
+    // The same dated roster history used by the player Game Log. A current
+    // flip-card club cannot be credited before the player joined it. Include
+    // future/expired stints for identity of known gaps; the scorer only uses
+    // a stint covering the reached day. A game line still overrides its day.
+    const { rows: stintRows } = ids.length
+      ? await query<{ yatid: string; first_day: number; last_day: number | null; club: string }>(
+        `SELECT yatid, (stint_start - $2::date)::int AS first_day,
+                 (stint_end - $2::date)::int AS last_day, team_name AS club
+            FROM public.player_team_stints
+           WHERE yatid = ANY($1::text[]) AND stint_start IS NOT NULL
+             AND level IS DISTINCT FROM 'HIGH SCHOOL'
+             AND NULLIF(btrim(team_name), '') IS NOT NULL
+             AND (stint_end IS NULL OR stint_end >= $2::date - interval '1 year')
+           ORDER BY yatid, stint_start, team_name, stint_end`,
+        [ids, start],
+      )
+      : { rows: [] };
+    const clubStints: Record<string, ClubStint[]> = {};
+    for (const row of stintRows) {
+      (clubStints[row.yatid] ||= []).push([Number(row.first_day), row.last_day == null ? null : Number(row.last_day), text(row.club)]);
+    }
     // Every game line counts (a stat line beats any status).
     // Club results: every finished game of every club these alumni play
     // for, from any line that carries the result (isWin).
     const clubNames = [...new Set([
       ...logRows.map((r) => text(r.team)),
+      ...Object.values(clubStints).flat().filter(([from, to]) => from < weeks * 7 && (to == null || to >= 0)).map(([, , club]) => club),
       ...Object.values(roster).flat().map((p) => p[4]),
     ].filter(Boolean))];
     const { rows: clubRows } = clubNames.length
@@ -275,7 +298,7 @@ export async function GET(req: NextRequest) {
     for (const r of fanRows) (fans[r.hsid] ||= Array(weeks).fill(0))[Number(r.w) - 1] = Number(r.n);
 
     return NextResponse.json(
-      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games, fans,
+      { asOf: new Date().toISOString(), start, weeks, roster, lines, clubs, games, fans, clubStints,
         yatIdentityBySourceId },
       { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' } },
     );

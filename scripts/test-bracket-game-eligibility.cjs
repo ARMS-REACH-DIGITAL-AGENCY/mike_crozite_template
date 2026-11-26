@@ -42,6 +42,7 @@ async function query(sql, params) {
   if (sql.includes('FROM team_schedules')) return { rows: schedules.filter(r => sql.includes('game_pk = ANY')
     ? params[0].includes(r.game)
     : r.day >= 0 && r.day < params[2] && (params[0].includes(r.home) || params[0].includes(r.away))) };
+  if (sql.includes('FROM public.player_team_stints')) return { rows: [] };
   if (sql.includes('FROM user_profiles')) return { rows: [] };
   throw Error('Unexpected query: ' + sql);
 }

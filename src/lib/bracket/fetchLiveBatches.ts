@@ -27,6 +27,7 @@ export function mergeBracketLive(into: Live, part: Live): void {
   Object.assign(into.roster, part.roster);
   into.lines.push(...part.lines);
   Object.assign(into.fans ||= {}, part.fans || {});
+  if (part.clubStints) Object.assign(into.clubStints ||= {}, part.clubStints);
   Object.assign(into.yatIdentityBySourceId ||= {}, part.yatIdentityBySourceId || {});
   mergeGameLists(into.clubs, part.clubs || {});
   mergeGameLists(into.games ||= {}, part.games || {});

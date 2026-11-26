@@ -39,10 +39,13 @@ import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
 type RosterEntry = [id: string, name: string, level: string, pitcher: 0 | 1, club: string, released?: number | null, back?: number];
 const offTeam = (p: RosterEntry, abs: number) => p[5] != null && abs >= p[5] && !(p[6] != null && abs >= p[6]);
 type Line = [hsid: string, playerid: string, day: number, kind: 'b' | 'p', stats: number[], game: string, club: string, final?: 0 | 1, level?: string];
+// Inclusive dates relative to the season start; a null end is open.
+export type ClubStint = [from: number, to: number | null, club: string];
 export type Live = {
   asOf: string; roster: Record<string, RosterEntry[]>; lines: Line[];
   clubs: Record<string, [number, string, 0 | 1, number?][]>; games?: Record<string, [number, string, 0 | 1, (0 | 1)?, number?][]>;
   fans?: Record<string, number[]>; // registered fans as each week went final
+  clubStints?: Record<string, ClubStint[]>; // YAT ID -> dated team membership
   // Historical source ID -> permanent identity, provided solely to migrate
   // legacy favorites and external links. Roster and stat lines themselves
   // carry YAT IDs only.
@@ -217,6 +220,18 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
     cur.club = club || cur.club;
     days.set(day, cur);
   }
+  // Latest dated membership wins over an earlier open stint. Conflicting
+  // same-day starts without a game line do not prove either club. A gap in
+  // known history is not permission to backdate the player's current club.
+  // Older captures / players without a stint keep the legacy fallback.
+  const clubForDay = (p: RosterEntry, day: number, lineClub: string | undefined, fallback: string): string => {
+    if (lineClub) return lineClub;
+    const stints = live.clubStints?.[p[0]];
+    if (!stints?.length) return fallback;
+    const latest = stints.reduce((n, [from]) => from <= day ? Math.max(n, from) : n, -Infinity);
+    const matches = [...new Set(stints.filter(([from, to]) => from === latest && (to == null || to >= day)).map(([, , club]) => club))];
+    return matches.length === 1 ? matches[0] : '';
+  };
   const clubGamesOn = (club: string, day: number): ClubGameFact[] =>
     (live.clubs[club] || []).filter(([d]) => d === day)
       .map(([, game, won, rd]) => [game, won, rd ?? 0]);
@@ -229,7 +244,7 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
     let n = 0;
     for (const p of players) {
       const x = mine?.get(p[0])?.get(today);
-      const day = clubDay.get(`${x?.club || p[4]}:${today}`);
+      const day = clubDay.get(`${clubForDay(p, today, x?.club, p[4])}:${today}`);
       if (day?.size || x?.b || x?.p) n++;
       for (const [id, st] of day || []) real.set(id, st);
     }
@@ -277,7 +292,7 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
         const mine = lines.get(String(h));
         for (const p of roster.get(String(h)) || []) {
           const x = mine?.get(p[0])?.get(abs);
-          for (const [id, st] of clubDay.get(`${x?.club || p[4]}:${abs}`) || []) real.set(id, st);
+          for (const [id, st] of clubDay.get(`${clubForDay(p, abs, x?.club, p[4])}:${abs}`) || []) real.set(id, st);
           if (going?.has(p[0])) open = true;
         }
       }
@@ -355,7 +370,7 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
           if (closed && !Array.isArray(oldGames)) {
             throw new Error('Locked club game identity cannot be reconciled: game ' + g[0] + ', player ' + p[0] + ', day ' + d);
           }
-          const candidates = oldGames ?? (reached ? clubGamesOn(club, from + d) : []);
+          const candidates = oldGames ?? (reached ? clubGamesOn(clubForDay(p, from + d, x?.club, club), from + d) : []);
           const games: ClubGameFact[] = [];
           for (const fact of candidates) {
             if (credited.has(fact[0])) continue;
