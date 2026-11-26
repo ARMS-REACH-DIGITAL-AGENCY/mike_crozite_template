@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Pool, PoolClient } from 'pg';
 import type { Live } from '../src/components/bracket/liveSeason';
-import { bracketDay, runSeason, SQL_ROWS, SQL_RULINGS, writeSeason, type Row, type Season } from './master-bracket-results';
+import { bracketDay, runSeason, SQL_ROWS, SQL_RULINGS, SQL_CLUB_ARCHIVE, SQL_CLUB_ARCHIVE_EXISTS, clubArchiveHash, writeSeason, type Row, type Season } from './master-bracket-results';
 
 const season: Season = {
   season_key: '2027', is_test: false, opening_day: '2026-03-23', last_day: '2026-11-15',
@@ -33,12 +33,15 @@ function feed(): Live {
 // Only IO is replaced. runSeason, its production transport, scorer, frozen
 // day handling and writer execute unchanged. Actual Postgres persistence is
 // covered by the isolated full-season replay, not claimed by this unit test.
-function database() {
-  let row: Row = { ...initial };
+function database(seed: Row = initial, archive: Record<string, any> = {}) {
+  let row: Row = structuredClone(seed);
+  const archiveReads: string[] = [];
   const writes: { sql: string; values: unknown[] }[] = [];
   const query = async (sql: string, values: unknown[] = []) => {
     if (sql === SQL_ROWS) return { rows: [row] };
     if (sql === SQL_RULINGS) return { rows: [] };
+    if (sql === SQL_CLUB_ARCHIVE_EXISTS) return { rows: [{ relation: 'bracket_rehearsal_days' }] };
+    if (sql === SQL_CLUB_ARCHIVE) { archiveReads.push(String(values[1])); return { rows: archive[String(values[1])] ? [structuredClone(archive[String(values[1])])] : [] }; }
     if (sql.includes('computed_at =')) {
       writes.push({ sql, values });
       assert.match(sql, /computed_at = COALESCE\(\$4::timestamptz, now\(\)\)/);
@@ -53,7 +56,7 @@ function database() {
     return { rows: [] };
   };
   const client = { query, release() {} } as unknown as PoolClient;
-  return { pool: { query, connect: async () => client } as unknown as Pool, client, writes, row: () => row };
+  return { pool: { query, connect: async () => client } as unknown as Pool, client, writes, archiveReads, row: () => row };
 }
 
 test('historical daily writes advance new innings and preserve closed-day precision', async () => {
@@ -138,4 +141,80 @@ test('a moved final club game is credited exactly once after the daily lock, inc
   assert.deepEqual(db.row().box_in_progress?.h.days?.[1][0][8], [1, 0]);
   assert.deepEqual(db.row().innings?.slice(16, 18), [1, 0]);
   assert.equal(db.row().winner_hsid, 1);
+});
+
+
+// The April 8 checkpoint was produced before PR #907: the frozen daily
+// ledgers are intact but have no credited game IDs. Simulate the same
+// situation via real production writes, stripping only the newer metadata
+// from the captured legacy box. No live DB or network is used.
+async function legacyAprilFixture() {
+  const actual: Live = {
+    asOf: '2026-04-08', roster: {'1': [['YAT066037','Jeremy Rodriguez','SINGLE-A',0,'St. Lucie Mets']], '2': [['YAT167043','Away alum','SINGLE-A',0,'Dunedin Blue Jays']]},
+    lines: [], clubs: {}, games: {},
+  };
+  const oldDb = database({...initial, game_id: 21, week: 3});
+  const captures: Record<string, any> = {};
+  const dates = ['2026-04-06','2026-04-07','2026-04-08'];
+  const next = ['2026-04-07','2026-04-08','2026-04-09'];
+  for (let i = 0; i < dates.length; i++) {
+    if (i === 1) actual.clubs = {'St. Lucie Mets': [[15,'820363',1,3]], 'Dunedin Blue Jays': [[15,'820363',0,-3]]};
+    await runSeason(oldDb.pool, season, next[i], {base:'https://replay.invalid',effectiveAt:next[i]+'T11:00:00Z',request:async()=>Response.json(actual)});
+    const saved = structuredClone(oldDb.row());
+    delete saved.box_in_progress!.h.clubGames;
+    delete saved.box_in_progress!.a.clubGames;
+    const {box_in_progress: box, ...other} = saved;
+    const stored = [{...other, box}];
+    const live = structuredClone(actual);
+    const source_snapshot = {start:season.opening_day,weeks:3,branch:'br-archive',endpoint:'ep-archive.example',commit:'verified-original',fieldHash:'verified-field',live};
+    captures[dates[i]] = {report_date:dates[i],branch_id:'br-archive',effective_at:next[i]+'T11:00:00Z',phase:'awaiting_review',source_snapshot,
+      stored_results:stored,evidence:{branch:'br-archive',endpoint:source_snapshot.endpoint,reportDate:dates[i],cutoffAt:next[i]+'T11:00:00Z',
+        commit:source_snapshot.commit,fieldHash:source_snapshot.fieldHash,sourceHash:clubArchiveHash(live),storedHash:clubArchiveHash(stored),ingestion:{complete:true}}};
+  }
+  const legacy = structuredClone(oldDb.row());
+  delete legacy.box_in_progress!.h.clubGames;
+  delete legacy.box_in_progress!.a.clubGames;
+  const current: Live = {...structuredClone(actual),asOf:'2026-04-09',clubs:{
+    'St. Lucie Mets': [[17,'820363',1,3],[17,'820369',0,-1]],
+    'Dunedin Blue Jays': [[17,'820363',0,-3],[17,'820369',1,1]],
+  }};
+  return { legacy, captures, current };
+}
+
+test('legacy April 8 box recovers the exact Tuesday identity from its archived cutoff before scoring April 9', async () => {
+  const {legacy,captures,current}=await legacyAprilFixture();
+  const untouched=structuredClone(legacy);
+  const archiveBefore=structuredClone(captures);
+  const db=database(legacy,captures);
+  const run=(day:string,cutoff:string)=>runSeason(db.pool,season,day,{base:'https://replay.invalid',effectiveAt:cutoff,request:async()=>Response.json(current)});
+  await run('2026-04-09','2026-04-10T10:59:59Z');
+  const box=db.row().box_in_progress!;
+  assert.deepEqual(db.archiveReads,['2026-04-06','2026-04-07','2026-04-08']);
+  assert.deepEqual(box.h.days?.slice(0,3),untouched.box_in_progress!.h.days?.slice(0,3));
+  assert.deepEqual(box.a.days?.slice(0,3),untouched.box_in_progress!.a.days?.slice(0,3));
+  assert.deepEqual(box.h.clubGames?.YAT066037[1],[['820363',1,3]]);
+  assert.deepEqual(box.h.clubGames?.YAT066037[3],[['820369',0,-1]]);
+  assert.deepEqual(box.h.days?.[3][0][8],[0,1]);assert.deepEqual(box.a.days?.[3][0][8],[1,0]);
+  assert.deepEqual(box.h.wl,[1,1]);assert.deepEqual(box.a.wl,[1,1]);
+  assert.equal(box.h.rd,2);assert.equal(box.a.rd,-2);
+  // The normal 4 a.m. boundary write reuses the recovered IDs, not archives.
+  await run('2026-04-10','2026-04-10T11:00:00Z');
+  assert.deepEqual(db.archiveReads,['2026-04-06','2026-04-07','2026-04-08']);
+  assert.deepEqual(db.row().box_in_progress!.h.days?.slice(0,3),untouched.box_in_progress!.h.days?.slice(0,3));
+  assert.deepEqual(legacy,untouched);assert.deepEqual(captures,archiveBefore);
+});
+
+test('a matching present-day W-L is not proof of the original identity; fail closed without a valid archived day', async () => {
+  const {legacy,captures,current}=await legacyAprilFixture();
+  current.clubs['St. Lucie Mets'].push([15,'replacement-with-same-win',1,3]);
+  const cases = [
+    {...captures,'2026-04-07':undefined},
+    {...captures,'2026-04-07':{...captures['2026-04-07'],evidence:{...captures['2026-04-07'].evidence,sourceHash:'tampered'}}},
+    {...captures,'2026-04-07':{...captures['2026-04-07'],effective_at:'2026-04-08T11:01:00Z'}},
+  ];
+  for(const archive of cases) {
+    const db=database(legacy,archive);
+    await assert.rejects(runSeason(db.pool,season,'2026-04-09',{base:'https://replay.invalid',effectiveAt:'2026-04-10T10:59:59Z',request:async()=>Response.json(current)}),/Locked club game identity cannot be reconciled/);
+    assert.equal(db.writes.length,0);assert.deepEqual(db.row(),legacy);
+  }
 });
