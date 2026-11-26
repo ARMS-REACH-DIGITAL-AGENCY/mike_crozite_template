@@ -44,7 +44,7 @@ function syntheticWL(playerid:string,week:number,level:string):[number,number]{
   const wins=hash(`yatstats-2026-wl:${playerid}:${week}:${level}`)%(games+1);
   return [wins,games-wins];
 }
-function pct([w,l]:[number,number]){ return w+l ? w/(w+l) : .5; }
+function pct([w,l]:[number,number]){ return w+l ? w/(w+l) : 0; }
 function scoreFlat(inn:number[]){ let h=0,a=0; inn.forEach((v,i)=>i%2?h+=0:a+=0); for(let i=0;i<inn.length;i+=2){h+=inn[i]||0;a+=inn[i+1]||0;} return [h,a] as [number,number]; }
 function deterministicWinner(home:number,away:number,week:number){ return hash(`sim-v3-tie:${week}:${home}:${away}`)%2 ? home : away; }
 
@@ -490,6 +490,7 @@ for(const [file,obj] of outDetails) fs.writeFileSync(path.join(DIR,`${file}.json
 fs.writeFileSync(LB_PATH,JSON.stringify({games:lbGames}));
 const outIndex={
   ...index,
+  rules: {...index.rules, emptyClubWinPct: 0},
   snapshot:{id:'sim-2026-v3',schema:3,source:'fixture-metrics+neon-roster',seed:'yatstats-2026-v3'},
   rounds,lbt,gf,champion,lbLeaders:leaders,alumni,lbChampion,grandChampion,
   rosters:Object.fromEntries([...rosters.entries()].map(([h,rs])=>[h,rs.map(r=>[r.id,r.name,r.level,r.pitcher?1:0])])),
