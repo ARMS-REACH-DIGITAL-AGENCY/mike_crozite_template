@@ -218,3 +218,30 @@ test('a matching present-day W-L is not proof of the original identity; fail clo
     assert.equal(db.writes.length,0);assert.deepEqual(db.row(),legacy);
   }
 });
+
+// April 16 2026 regression: Jeremiah Boyd joined his school's roster mid-week
+// (no record on the locked Monday-Wednesday days). Locked days stay exactly as
+// published; he counts from the day he appears; the run never stops on him.
+test('a player who joins mid-week gets nothing on locked days and counts from his first day', async () => {
+  const live = feed();
+  live.lines = [];
+  live.clubs = { H: [[0, 'g0', 1, 2]], A: [[0, 'g0', 0, -2]] };
+  const request: typeof fetch = async () => new Response(JSON.stringify(live));
+  const db = database();
+  const run = (day: string, effectiveAt: string) => runSeason(db.pool, season, day, { base: 'https://replay.invalid', effectiveAt, request });
+  await run('2026-03-25', '2026-03-25T11:00:00Z');
+  const locked = structuredClone(db.row().box_in_progress!);
+  live.roster['1'].push(['YAT000003', 'New arrival', 'TRIPLE-A', 0, 'R']);
+  live.clubs.R = [[0, 'r0', 1, 5], [3, 'r3', 1, 4]];
+  await run('2026-03-27', '2026-03-27T11:00:00Z');
+  const box = db.row().box_in_progress!;
+  for (const d of [0, 1, 2]) {
+    // Everyone already on the locked day is unchanged; the new arrival shows only as an empty 0-0 row.
+    assert.deepEqual(box.h.days?.[d].filter(r => r[0] !== 'YAT000003'), locked.h.days?.[d]);
+    const added = box.h.days?.[d].find(r => r[0] === 'YAT000003');
+    if (added) assert.deepEqual(added[8], [0, 0]);
+  }
+  assert.deepEqual(box.h.clubGames?.YAT000003?.slice(0, 3), [[], [], []]);
+  assert.deepEqual(box.h.clubGames?.YAT000003?.[3], [['r3', 1, 4]]);
+  assert.deepEqual(box.h.wl, [2, 0]);
+});
