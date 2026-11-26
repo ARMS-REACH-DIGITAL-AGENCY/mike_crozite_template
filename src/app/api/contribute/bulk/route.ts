@@ -31,7 +31,7 @@ import {
   stagePhoto,
   uploadCategory,
 } from '@/lib/contributeServer';
-import { NotAnImageError as NotAStoryImageError, makeStoryCutout, storeStoryPhoto } from '@/lib/stories';
+import { NotAnImageError as NotAStoryImageError, storeStoryPhoto } from '@/lib/stories';
 import { PLAYER_ID } from '@/lib/contribute';
 
 export const runtime = 'nodejs';
@@ -120,7 +120,6 @@ export async function POST(req: NextRequest) {
       if (!year) return fail('A Story / Memory needs its year.');
       if (!caption) return fail('A Story / Memory needs a caption.');
       const stored = await storeStoryPhoto(randomUUID(), 0, input);
-      await Promise.race([makeStoryCutout(stored.s3_key), new Promise((resolve) => setTimeout(resolve, 20000))]);
       const takenDate = month ? `${year}-${String(month).padStart(2, '0')}-01` : null;
       const author = asYatstats ? 'YAT?STATS' : who!.name;
       const story = credit && credit.toLowerCase() !== author.toLowerCase() ? `${caption}\n\nPhoto: ${credit}` : caption;

@@ -258,8 +258,7 @@ function teamLogoCandidates(row: StatRow) {
 function seasonCutoutCandidates(playerId: string, year: number) {
   const id = encodeURIComponent(playerId);
   return [
-    `${S3_BASE}/players/season-cutouts/${id}_${year}.png`,
-    `${S3_BASE}/players/season-photos/${id}_${year}.jpg`,
+    `/api/cutout?kind=season&id=${id}_${year}`,
   ];
 }
 
@@ -1116,8 +1115,8 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
           // duplicate approved records.
           type TimelinePhoto = { id: string; year: number; web: string | null; cutout: string | null; source: string | null };
           for (const image of (Array.isArray(data.timelinePhotos) ? data.timelinePhotos : []) as TimelinePhoto[]) {
-            if (image.year && image.web && !byYear[image.year]?.length)
-              byYear[image.year] = [{ web: image.web, cutout: image.cutout, source: image.source, storyId: null }];
+            if (image.year && image.cutout && !byYear[image.year]?.length)
+              byYear[image.year] = [{ web: image.web || '', cutout: image.cutout, source: null, storyId: null }];
           }
           setPublishedPhotosByYear(byYear);
           setPublishedStoriesByMonth(byMonth);
@@ -2193,11 +2192,8 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
           }
           const storyPhotos = isCareerYearSlide(slide) || slide.kind === 'draft' ? storyPhotosByYear[slide.year] : undefined;
           if (storyPhotos?.length) {
-            return (
-              <span key={slide.id} className="zt-story-hero" style={{ opacity }}>
-                <StoryHeroStrip photos={storyPhotos} tick={isPreview ? 0 : heroTick} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} readOnly={isPreview} onOpenStory={openTimelineStory} />
-              </span>
-            );
+            const stem = storyPhotos[0].cutout?.split('/').pop()?.replace(/\.png$/i, '');
+            return <SmartImage key={slide.id} className="zt-person zt-person-yati zt-annual-hero" style={{ opacity }} srcs={stem ? ['/api/cutout?kind=season&id='+encodeURIComponent(stem)] : []} src={slide.yatiFallback || YATI_PLACEHOLDERS[0]} alt={`${resolvedPlayerName || 'Player'} — ${slide.year}`} />;
           }
           if (slide.kind === 'hsyear') {
             return (
@@ -2670,7 +2666,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
           object-fit:contain; object-position:right bottom;
           filter:drop-shadow(0 3px 8px rgba(0,0,0,.5));
         }
-         .zt-person-stack :global(.zt-person.zt-annual-hero) { bottom:-4% !important; height:104% !important; object-fit:contain; }
+         .zt-person-stack :global(.zt-person.zt-annual-hero) { bottom:-4% !important; height:104% !important; width:800px; left:calc(var(--hero-copy-left) - 8px - 800px); object-fit:contain; object-position:right bottom; }
         /* The line of waiting photos: each one slot further right, smaller
            and faded way back, behind the quote (this layer sits under the
            headline's). */
@@ -3138,6 +3134,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
              as the desktop base rule, same reasons -- just recomputed
              against .zt-copy's left:32% at this breakpoint instead of 34%. */
           .zt-person-stack :global(.zt-person) { left:calc(32% - 8px - clamp(130px,26cqw,200px)); width:clamp(130px,26cqw,200px); }
+          .zt-person-stack :global(.zt-person.zt-annual-hero) { left:calc(32% - 8px - 800px); width:800px; object-position:right bottom; }
           .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) { width:calc(32% - 8px); }
           /* Pro image and HS cutout (see the desktop base rules),
              recomputed against .zt-copy's real left:32% at this
@@ -3183,6 +3180,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
              left, not lined up with anything. Back to the plain flat
              left:24%/object-position:left-bottom this had before that. */
           .zt-person-stack :global(.zt-person) { left:24%; width:clamp(84px,28cqw,120px); object-position:left bottom; }
+          .zt-person-stack :global(.zt-person.zt-annual-hero) { left:0; width:56%; object-position:right bottom; }
           .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) { width:calc(58% - 8px); }
           /* Anchor action photo and fallback headshot track the same 53%-of-real-
              screen text boundary as the widened anchor copy. Action shots

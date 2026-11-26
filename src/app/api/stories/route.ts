@@ -25,8 +25,6 @@ import {
   STORY_MAX_PHOTOS,
   STORY_MAX_TAGS,
   STORY_MAX_TEXT,
-  cutoutKeyFor,
-  makeStoryCutout,
   storeStoryPhoto,
   storyAssetUrl,
 } from '@/lib/stories';
@@ -110,11 +108,9 @@ export async function GET(req: NextRequest) {
     const stories = rows.map((r) => {
       const draft = r.stage === DRAFT_STAGE;
       const photos = (r.photos || []).map((p) => ({
-        // Timeline hero cutout (may not exist yet - the timeline falls back
-        // to the whole photo and asks /api/stories/cutout to make it). A
-        // club logo is never cut out.
-        cutout: p.full && !draft ? storyAssetUrl(cutoutKeyFor(p.full)) : null,
-        source: draft ? null : p.full,
+        // Stories are original-aspect memories, never annual hero sources.
+        cutout: null,
+        source: null,
         web: storyAssetUrl(p.web),
         thumb: storyAssetUrl(p.thumb),
         full: storyAssetUrl(p.full),
@@ -186,7 +182,7 @@ export async function GET(req: NextRequest) {
     }>(
       `SELECT id::text, date_taken::text, s3_key, description
          FROM media_upload
-        WHERE playerid = $1 AND purpose = 'timeline_hero' AND status = 'approved'
+        WHERE yatid = public.yat_id_for($1::text) AND purpose = 'timeline_hero' AND status = 'approved'
           AND s3_key LIKE 'staging/contribute/%'
           AND COALESCE((CASE WHEN description IS NOT NULL AND left(description,1) = '{'
              THEN description::jsonb ->> 'supersededBy' ELSE NULL END),'') = ''
@@ -217,18 +213,7 @@ export async function GET(req: NextRequest) {
       if (!Number.isInteger(year)) return [];
       return [{ id: upload.id, year, web: storyAssetUrl(full), cutout: storyAssetUrl(recordedCutout || expectedCutout), source: null }];
     });
-    // Restore the original Golden Line photos to career-year slides for
-    // years without a newer, approved yearly hero. Multiple photos for the
-    // same year remain individually available in the public Stories feed.
-    const selectedLegacyYears = new Set(timelinePhotos.map((photo) => photo.year));
-    for (const legacy of rows) {
-      if (!legacy.legacy_photo || legacy.posted_on_playerid !== playerId) continue;
-      const year = Number(legacy.photo_taken_year || legacy.photo_taken_date?.slice(0, 4));
-      if (!Number.isInteger(year) || year < 1900 || year > 2100 || selectedLegacyYears.has(year)) continue;
-      const url = `/api/legacy-moment-photo/${encodeURIComponent(legacy.id)}`;
-      timelinePhotos.push({ id: `legacy-${legacy.id}`, year, web: url, cutout: null, source: null });
-      selectedLegacyYears.add(year);
-    }
+    // Legacy inline memories remain Stories; never substitute them for an annual hero.
     return NextResponse.json({ stories, timelinePhotos }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('[stories] GET failed', error);
@@ -317,14 +302,7 @@ export async function POST(req: NextRequest) {
       stored.push(await storeStoryPhoto(folder, i, Buffer.from(await photos[i].arrayBuffer())));
     }
 
-    // Cut out each photo for the timeline's hero spot now, so it's there
-    // the moment the story is. Capped so a slow remove.bg never holds up
-    // the post (anything not done is made the first time the timeline
-    // shows that photo).
-    await Promise.race([
-      Promise.all(stored.map((p) => makeStoryCutout(p.s3_key))),
-      new Promise((resolve) => setTimeout(resolve, 20000)),
-    ]);
+    // Memory images retain their original framing; no hero cutout job.
 
     // 6. The story, its photos, its players and the fan's activity - one
     //    statement, so it all saves or none of it does.
