@@ -338,9 +338,13 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
           const closed = saved != null && d < saved.closed;
           const old = closed ? frozenPlayers[d]?.get(p[0]) : undefined;
           const oldGames = closed ? prior?.clubGames?.[p[0]]?.[d] : undefined;
-          // Legacy boxes lack game IDs. Backfill only when the source still
-          // reproduces their exact locked W-L; otherwise require verified
-          // historical evidence, rather than guess which game was counted.
+          // The server writer must resolve any legacy locked day from its
+          // verified cutoff capture first. Matching the current W-L alone
+          // cannot prove which game was credited (a replacement may have the
+          // same outcome). No fallback to today's schedule on a closed day.
+          if (closed && (!old || !Array.isArray(oldGames))) {
+            throw new Error('Locked club game identity cannot be reconciled: game ' + g[0] + ', player ' + p[0] + ', day ' + d);
+          }
           const candidates = oldGames ?? (reached ? clubGamesOn(club, from + d) : []);
           const games: ClubGameFact[] = [];
           for (const fact of candidates) {
