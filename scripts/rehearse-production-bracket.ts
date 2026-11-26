@@ -91,7 +91,7 @@ async function main() {
     .filter(file => !TEST_ONLY_FILES.has(file) && localTree.get(file) !== productionTree.get(file)).sort();
   if (differing.length) throw new Error('Shared production code differs before rehearsal: ' + differing.join(', '));
   const sourceHashes = Object.fromEntries([
-    'scripts/rehearse-production-bracket.ts', 'scripts/rehearsal-day.ts', 'scripts/lib/rehearsal-mlb-source.ts',
+    'scripts/rehearse-production-bracket.ts', 'scripts/audit-production-rehearsal.ts', 'scripts/rehearsal-day.ts', 'scripts/lib/rehearsal-mlb-source.ts',
     'scripts/lib/rehearsal-resume.ts', 'scripts/lib/rehearsal-checkpoint-lock.ts', 'scripts/master-bracket-results.ts',
     'scripts/newsletter-publish.ts', 'src/lib/bracket/storedPublication.ts', 'src/lib/newsletter/finishedPublication.ts',
     'src/components/bracket/liveSeason.ts', 'src/lib/bracket/engine.ts', 'src/lib/bracket/fetchLiveBatches.ts',
@@ -254,8 +254,23 @@ async function main() {
       throw new Error('Published bracket results differ from the immutable result checkpoint');
     }
     evidence.passes = passes; evidence.storedHash = digest(stored); evidence.storedGames = stored.length;
-    if (previous?.report_date !== day || previous.phase !== 'awaiting_review') {
-      await pool.query("UPDATE bracket_rehearsal_days SET phase='scored',evidence=$3::jsonb,stored_results=$4::jsonb,updated_at=now() WHERE season_key=$1 AND report_date=$2", [seasonKey, day, JSON.stringify(evidence), JSON.stringify(stored)]);
+    // The independent audit is part of the checkpoint, not an optional later
+    // workflow step. A failed audit leaves this day scored but NOT reviewable.
+    evidence.audit = { status: 'pending' };
+    await pool.query("UPDATE bracket_rehearsal_days SET phase='scored',evidence=$3::jsonb,stored_results=$4::jsonb,updated_at=now() WHERE season_key=$1 AND report_date=$2", [seasonKey, day, JSON.stringify(evidence), JSON.stringify(stored)]);
+    const auditReport = folder + '/audit.json';
+    const throughWeek = Math.floor((Date.parse(addDays(day, 1)) - Date.parse(season.opening_day)) / (7 * 86400000));
+    try {
+      execFileSync(process.execPath, ['--import', 'tsx', 'scripts/audit-production-rehearsal.ts',
+        '--expected-branch', expectedBranch, '--season', seasonKey, '--through-week', String(throughWeek),
+        '--now', cutoffAt, '--report', auditReport], { stdio: 'inherit', env: process.env });
+      const audit = JSON.parse(readFileSync(auditReport, 'utf8'));
+      if (audit.ok !== true || audit.failureCount !== 0 || audit.databaseBranch !== expectedBranch || audit.season !== seasonKey || Date.parse(audit.effectiveAt) !== Date.parse(cutoffAt)) throw new Error('Independent audit did not verify the exact cutoff');
+      evidence.audit = { status: 'passed', checks: audit.checks, boxesChecked: audit.boxesChecked, effectiveAt: audit.effectiveAt };
+    } catch (error) {
+      evidence.audit = { status: 'failed' };
+      await pool.query("UPDATE bracket_rehearsal_days SET phase='scored',evidence=$3::jsonb,updated_at=now() WHERE season_key=$1 AND report_date=$2", [seasonKey, day, JSON.stringify(evidence)]);
+      throw new Error('Independent audit failed; the day remains scored and cannot advance or render proofs', { cause: error });
     }
     writeFileSync(folder + '/stored-results.json.gz', gzipSync(JSON.stringify(stored)));
     // Scoring and publication are independent of any individual fan.
