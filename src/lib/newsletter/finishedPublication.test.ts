@@ -199,23 +199,30 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
   for (const piece of order) { const k = result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) >= 0 ? result.html.indexOf(piece.replace(/'/g, '&#x27;'), at + 1) : result.html.indexOf(piece, at + 1); assert.ok(k > at, 'Missing or out of order: ' + piece); at = k; }
   // The stat drawer's grid (Pete, Nov 25 2026): each row's cells as text, "|" between cells.
   const cells = result.html.replace(/<td[^>]*>/g, '|').replace(/<[^>]+>/g, '');
-  // Bellinger (a favorite) in bold with his logo; the columns OPS+, W-L, AB..SF, OBP, SLG, OPS.
+  // Bellinger (a favorite) in bold with his logo; W-L* is the last column, after OPS.
   assert.match(result.html, /<tr align="center" style="font-weight:800;color:#000"><td [^>]*><img src="https:\/\/hamilton\.az\.yatstats\.com\/logo\/20" width="17" height="17"[^>]*><span [^>]*>Bellinger<\/span>/);
-  assert.match(cells, /\|Bellinger\|183\|3-0\|11\|4\|0\|1\|0\|2\|0\|0\|\.462\|\.545\|1\.007/);
+  assert.match(cells, /\|Bellinger\|183\|11\|4\|0\|1\|0\|2\|0\|0\|\.462\|\.545\|1\.007\|3-0/);
   // No logo: a 17px spacer; no favorite: not bold.
-  assert.match(result.html, /<tr align="center"><td [^>]*><span style="display:inline-block;width:17px;height:17px;margin-right:3px;vertical-align:middle"><\/span><span [^>]*>Berge<\/span><\/td><td [^>]*>—<\/td><td>0-0</);
+  assert.match(result.html, /<tr align="center"><td [^>]*><span style="display:inline-block;width:17px;height:17px;margin-right:3px;vertical-align:middle"><\/span><span [^>]*>Berge<\/span><\/td><td [^>]*>—<\/td><td>0</);
   // Pitcher: IP from outs, then the drawer's formats: WHIP .000, K/BB, FIP; team OPS+ / FIP- from the stored game.
-  assert.match(cells, /\|Hamel\|132\|1-1\|3\.2\|6\|7\|7\|0\|5\|0\|2\|3\.000\|0\.40\|5\.07/);
-  assert.match(cells, /\|BATTERS\|160\|4-1\|/);
-  assert.match(cells, /\|PITCHERS\|119\|4-1\|/);
+  assert.match(cells, /\|Hamel\|132\|3\.2\|6\|7\|7\|0\|5\|0\|2\|3\.000\|0\.40\|5\.07\|1-1/);
+  assert.match(cells, /\|BATTERS\|160\|11\|4\|0\|1\|0\|2\|0\|0\|\.462\|\.545\|1\.007\|4-1/);
+  assert.match(cells, /\|PITCHERS\|119\|3\.2\|6\|7\|7\|0\|5\|0\|2\|3\.000\|0\.40\|5\.07\|4-1/);
+  assert.match(cells, /\|BATTERS\|OPS\+\|AB\|H\|2B\|3B\|HR\|BB\|HBP\|SF\|OBP\|SLG\|OPS\|W-L\*/);
+  assert.match(cells, /\|PITCHERS\|FIP-\|IP\|H\|R\|ER\|HR\|BB\|HBP\|K\|WHIP\|K\/BB\|FIP\|W-L\*/);
+  assert.ok(result.text.includes('BATTERS | OPS+ | AB | H | 2B | 3B | HR | BB | HBP | SF | OBP | SLG | OPS | W-L*'));
+  assert.ok(result.text.includes('PITCHERS | FIP- | IP | H | R | ER | HR | BB | HBP | K | WHIP | K/BB | FIP | W-L*'));
+  assert.ok(result.text.includes('Bellinger | 183 | 11 | 4 | 0 | 1 | 0 | 2 | 0 | 0 | .462 | .545 | 1.007 | 3-0'));
+  assert.match(result.html, /W-L\* — Win–loss record of the team\(s\) each alumnus was rostered with during the selected week, not individual pitching decisions\./);
+  assert.ok(result.text.includes('W-L* — Win–loss record of the team(s) each alumnus was rostered with during the selected week, not individual pitching decisions.'));
   // Batters and Pitchers share one grid: the same column widths, in the same order.
   const widths = [...result.html.matchAll(/<td width="(\d+)"/g)].map((m) => m[1]).join(',');
-  assert.ok(widths.startsWith('25,25,17,17,17,17,17,17,17,17,28,28,28,25,25,17,17,17,17,17,17,17,17,28,28,28'), widths);
+  assert.ok(widths.startsWith('25,17,17,17,17,17,17,17,17,28,28,28,25,25,17,17,17,17,17,17,17,17,28,28,28,25'), widths);
   // Favorites: only those outside the home school (Bellinger is already in bold above).
   const favTable = result.html.slice(result.html.indexOf('SuperFan Weekly Stats'), result.html.indexOf('S WEEK'));
   assert.doesNotMatch(favTable, /Bellinger/);
   // Favorites: dashes for OPS+/FIP-, their own week; no FIP on file for a pitcher: a dash.
-  assert.match(cells, /\|Ginkel\|—\|0-0\|3\.0\|3\|1\|1\|0\|2\|0\|6\|1\.667\|3\.00\|—/);
+  assert.match(cells, /\|Ginkel\|—\|3\.0\|3\|1\|1\|0\|2\|0\|6\|1\.667\|3\.00\|—\|0-0/);
   assert.doesNotMatch(result.html, /TEST REPLAY|pipeline|commissioner/i);
   assert.equal(result.layoutVersion, 'gazette-test3-v1');
   // Pete, Nov 24 2026: the favorites' transactions that week, in MLB's words.

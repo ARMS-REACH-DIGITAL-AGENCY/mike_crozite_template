@@ -27,6 +27,7 @@ import { loadPreparedIndex, loadPreparedBoxes, preparedLb } from './preparedSeas
 import { inActionToday } from './inAction';
 import { ScoringRulesPanel } from './BracketRules';
 import { battedIn, pitchedIn } from '@/lib/bracket/appearance';
+import { CLUB_WL_LABEL, clubWlKey } from '@/lib/bracket/statLedgerLabels';
 
 export type SchoolRow = [name: string, region: number, seed: number];
 export type GameRow = [id: number, week: number, home: number, away: number, decidedBy: string, innings: number[], winner: number | null];
@@ -1266,11 +1267,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const batCols: SortCol[] = [
     // No plate appearances: no OPS+ (a dash, not a 0 that reads like a real, terrible number).
     { key: 'ops+', label: 'OPS+', cls: 'plus', val: (p) => (batted(p) ? p[6] ?? null : null), show: (p) => (batted(p) ? p[6] ?? '—' : '—') },
-    { key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell },
     ...['AB', 'H', '2B', '3B', 'HR', 'BB', 'HBP', 'SF'].map((label, i): SortCol => ({ key: label, label, val: (p) => bat(p)[i + 1], show: (p) => bat(p)[i + 1] })),
     { key: 'obp', label: 'OBP', cls: 'rate', val: (p) => obp(bat(p)), show: (p) => rate(obp(bat(p))) },
     { key: 'slg', label: 'SLG', cls: 'rate', val: (p) => slg(bat(p)), show: (p) => rate(slg(bat(p))) },
     { key: 'ops', label: 'OPS', cls: 'rate', val: (p) => obpSlg(bat(p)), show: (p) => rate(obpSlg(bat(p))) },
+    { key: 'wl', label: CLUB_WL_LABEL, cls: 'wl', val: wlVal, show: wlCell },
   ];
   const pit = (p: PlayerRow) => p[5] as number[];
   const pitched = (p: PlayerRow) => pitchedIn(p[5]);
@@ -1286,7 +1287,6 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const pitCols: SortCol[] = [
     // Didn't pitch (no out and no FIP event, the engine's own test): no FIP-, a dash rather than a 0.
     { key: 'fip-', label: 'FIP-', cls: 'plus', val: (p) => (pitched(p) ? p[7] ?? null : null), show: (p) => (pitched(p) ? p[7] ?? '—' : '—') },
-    { key: 'wl', label: 'W-L', cls: 'wl', val: wlVal, show: wlCell },
     { key: 'ip', label: 'IP', val: (p) => pit(p)[0] || 0, show: (p) => ip(pit(p)[0] || 0) },
     { key: 'h', label: 'H', val: (p) => pit(p)[5] || 0, show: (p) => pit(p)[5] || 0 },
     { key: 'r', label: 'R', val: (p) => pit(p)[6] || 0, show: (p) => pit(p)[6] || 0 },
@@ -1298,6 +1298,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
     { key: 'whip', label: 'WHIP', cls: 'rate', val: whip, show: (p) => rate(whip(p)) },
     { key: 'kbb', label: 'K/BB', cls: 'rate', val: kbb, show: (p) => kbb(p).toFixed(2) },
     { key: 'fip', label: 'FIP', cls: 'rate', val: fipRaw, show: (p) => fipRaw(p).toFixed(2) },
+    { key: 'wl', label: CLUB_WL_LABEL, cls: 'wl', val: wlVal, show: wlCell },
   ];
   // Future tabs keep their roster names, never future performance values.
   const batColsForView: SortCol[] = unreachedDay
@@ -1525,12 +1526,11 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               pitchers' clubs), and the school's W-L - every alumnus once -
               is the Team total at the bottom. */}
           <SortTable title="Batters" rows={batters} cols={batColsForView} player={player} labels={labels} favs={favs} empty="No batters on roster"
-            total={unreachedDay ? batColsForView.map(() => '—') : [teamDayMetric(me), wlText(sumRosterWl(batters)), ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat))]} />
+            total={unreachedDay ? batColsForView.map(() => '—') : [teamDayMetric(me), ...teamBat.slice(1), rate(obp(teamBat)), rate(slg(teamBat)), rate(obpSlg(teamBat)), wlText(sumRosterWl(batters))]} />
           <SortTable title="Pitchers" rows={pitchers} cols={pitColsForView} player={player} labels={labels} favs={favs} empty="No pitchers on roster"
             grand={pitColsForView.map((c) => (c.key === 'wl' ? shownTeamWl : ''))}
             total={unreachedDay ? pitColsForView.map(() => '—') : [
               teamDayMetric(2 + me),
-              wlText(sumRosterWl(pitchers)),
               ip(teamPit[0] || 0),
               teamPit[5] || 0,
               teamPit[6] || 0,
@@ -1542,7 +1542,9 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
               rate(teamWhip),
               teamKbb.toFixed(2),
               teamFip.toFixed(2),
+              wlText(sumRosterWl(pitchers)),
             ]} />
+          <div className="bl-legend bl-wl-key">{clubWlKey(statDay === 'week' ? 'week' : 'day')}</div>
 
           {drawerMode ? (
             // The same scoring rules as the Rules drawer, word for word.
@@ -1934,6 +1936,7 @@ export function Styles() {
       .bl-wl b { color:var(--text); }
       .bl-wl em { color:var(--gold); font-style:normal; }
       .bl-legend { margin-top:4px; font-size:11px; color:var(--faint); }
+      .bl-wl-key { margin:10px 8px 4px; line-height:1.4; color:var(--muted); white-space:normal; }
       .bl-muted { padding:10px 12px; color:var(--muted); font-size:13px; }
       .bl-fans-kick { padding:8px 12px 2px; color:var(--gold); font:500 11px/1.3 Oswald, sans-serif; letter-spacing:.08em; text-transform:uppercase; }
       .bl-fans { padding:6px 12px 8px; }
