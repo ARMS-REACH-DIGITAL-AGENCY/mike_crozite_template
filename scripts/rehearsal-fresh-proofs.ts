@@ -12,7 +12,8 @@ async function main(){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date||'')||!out)throw Error('Usage: rehearsal-fresh-proofs YYYY-MM-DD output-directory [schools]');
  if(process.env.VERCEL_ENV==='production'||process.env.REHEARSAL_NEON_BRANCH!=='br-falling-wind-a4ew8f1p'||!process.env.DATABASE_URL||process.env.DATABASE_URL!==process.env.PLAYERS_DATABASE_URL)throw Error('Verified isolated QA source required');
  if(new URL(process.env.DATABASE_URL).hostname.split('.')[0].replace(/-pooler$/,'')!=='ep-shy-forest-a4s3qsv6')throw Error('Wrong QA endpoint');
- execFileSync('git',['diff','--quiet','origin/Easter-NEWS','HEAD','--','src/lib/newsletter','src/app/api/cron/fan-daily-pilot/route.ts','src/app/api/admin/rehearsal-newsletter-preferences/route.ts']);
+ // The normal rehearsal parity guard already permits this one TEST-ONLY archive file.
+ execFileSync('git',['diff','--quiet','origin/Easter-NEWS','HEAD','--','src/lib/newsletter','src/app/api/cron/fan-daily-pilot/route.ts','src/app/api/admin/rehearsal-newsletter-preferences/route.ts',':(exclude)src/lib/newsletter/rehearsalEditionArchive.ts']);
  // Require the reviewed production directory change, never a copied QA list.
  const token=process.env.REHEARSAL_LIVE_FAN_TOKEN;
  if(mode==='schools'){
