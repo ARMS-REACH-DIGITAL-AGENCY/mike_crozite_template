@@ -180,7 +180,7 @@ test("tiebreak: best hitter vs best hitter and best pitcher vs best pitcher; win
   assert.equal(g.winner, 'home');
 });
 
-test('tiebreak: 1-1 on #1 advances to #2 and cumulative player runs decide it', () => {
+test('tiebreak: 1-1 on #1 advances to #2 but only one official run is awarded', () => {
   // #1: home's hitter better (5 hits vs 4), away's pitcher better (12 K vs 10) -> 1-1
   // #2: away's hitter better (3 vs 2) and away's pitcher better (9 K vs 7) -> cumulative 1-3
   const home = roster(hitter(5), hitter(2), pitcher(10), pitcher(7));
@@ -211,7 +211,7 @@ test('extra innings: both below league average - the better number still wins', 
   assert.deepEqual([g.innings[9].home, g.innings[9].away], [0, 1]);
 });
 
-test('extra innings: one matchup at a rank is enough; the missing one scores nothing', () => {
+test('extra innings: an unopposed slot cannot add another official run', () => {
   // Only home has a hitter; both have a pitcher. The pitchers decide inning 10.
   const g = playGame(tied(roster(hitter(5), pitcher(10))), tied(roster(pitcher(6))), baselines, HOLD);
   assert.equal(g.winner, 'home');
@@ -220,7 +220,7 @@ test('extra innings: one matchup at a rank is enough; the missing one scores not
 });
 
 test('cross-position tiebreak uses same-week percentile ranks, not raw distance from 100', () => {
-  const pool = { hitters: [30, 82, 118, 138, 235, 270], pitchers: [-140, -120, -102, -81, -73, -35] };
+  const pool = { hitters: [-2, 30, 64, 78, 82, 118, 138, 235, 270], pitchers: [-140, -120, -102, -81, -73, -35] };
   const g = resolvePlayerTiebreak({ hitters: [235, 78], pitchers: [81, 102] },
     { hitters: [138, 118, 82], pitchers: [73] }, HOLD, pool);
   assert.equal(g.rank, 2);
