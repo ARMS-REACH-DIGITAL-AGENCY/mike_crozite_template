@@ -160,9 +160,18 @@ const ref = (season: string, r: { region: number; week: number; home_hsid: numbe
 // morning after) when the job last scored the game is frozen - its inning and
 // its drawer stay as stored, whatever stats arrive later (Pete, Oct 27). A
 // day closed since then is scored now, once, and frozen from then on.
-function keepFrozenRows<T extends unknown[]>(frozen: T[], fresh: T[] | undefined): T[] {
-  const ids = new Set(frozen.map(r => r[0]));
-  return [...frozen, ...(fresh || []).filter(r => !ids.has(r[0]))];
+function keepFrozenRows<T extends unknown[]>(frozen: T[], fresh: T[]): T[] {
+  const byId = new Map(frozen.map(r => [r[0], r]));
+  const ids = new Set(fresh.map(r => r[0]));
+  // Never silently discard a locked player or duplicate a row. A roster
+  // removal needs explicit reconciliation rather than changing saved results.
+  if (byId.size !== frozen.length || ids.size !== fresh.length || frozen.some(r => !ids.has(r[0]))) {
+    throw new Error('Locked daily roster cannot be reconciled with the weekly roster');
+  }
+  // The fresh scorer's order is the weekly roster order. Reuse each saved
+  // row verbatim by YAT ID; insert the new player's empty row at its proper
+  // position, not at the end (game 3679, April 16-17 2026).
+  return fresh.map(r => byId.get(r[0]) ?? r);
 }
 function freezeClosedDays(res: Result, row: Row, weekStart: string) {
   const stored = (row.innings || []).map(Number);
