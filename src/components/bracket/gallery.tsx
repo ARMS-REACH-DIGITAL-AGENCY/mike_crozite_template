@@ -1248,7 +1248,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const wl = rawMine?.wl || mine?.wl || [0, 0];
   const owl = rawTheirs?.wl || theirs?.wl || [0, 0];
   const pct = (w: number, l: number) => (w + l ? rate(w / (w + l)) : '.000');
-  const pctNum = (w: number, l: number): number | null => (w + l ? w / (w + l) : null);
+  const pctNum = (w: number, l: number): number => (w + l ? w / (w + l) : 0);
   // Last names only; an initial when two share one (B. Smith, R. Smith).
   const labels = shortNames(mine?.p || []);
   // Each name links to his profile (a tap there doesn't flip the card).
@@ -1325,8 +1325,8 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
   const homeWl = me === 0 ? wl : owl;
   const awayWl = me === 0 ? owl : wl;
   // The ninth-inning RUN remains locked until the week is final, but its
-  // current winning percentages are visible during the week. Unplayed
-  // games stay blank; no club games is not scored as zero percent.
+  // current winning percentages are visible during the week. A loaded
+  // 0–0 record is .000; a missing box stays blank.
   const homeWp = boxForView ? pctNum(homeWl[0], homeWl[1]) : null;
   const awayWp = boxForView ? pctNum(awayWl[0], awayWl[1]) : null;
   // Live: a run counts only once settled; until then the cell shows the lead.
@@ -1408,7 +1408,7 @@ export function Face({ side, label, week, dates, home, away, names, locations = 
         <span className="bl-tb-wlabel">W%</span>
         <span className="bl-tb-label" title="Row 1: OPS+ (hitting)">OPS+</span>
         {metricRow(side === 0 ? 2 : 3, side === 0 ? 3 : 2, false)}
-        <span className={`bl-tb-cell wl-pct${wp != null && wp > (oppWp ?? 0.5) ? (weekInProgress || !settledAt(8, 0) ? ' lead' : ' won') : ''}`}
+        <span className={`bl-tb-cell wl-pct${(weekInProgress || !settledAt(8, 0)) ? (wp != null && oppWp != null && wp > oppWp ? ' lead' : '') : (correctedInnings[16 + side] > 0 ? ' won' : '')}`}
           title={`Current alumni-club W-L: ${side === 0 ? homeWl.join('-') : awayWl.join('-')}; winning percentage ${wpText(wp)}`}
           aria-label={`${name} current winning percentage ${wpText(wp)}`}>{wpText(wp)}</span>
         <span className="bl-tb-label" title="Row 2: FIP- (pitching)">FIP-</span>
