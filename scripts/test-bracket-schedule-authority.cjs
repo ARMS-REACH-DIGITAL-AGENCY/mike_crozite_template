@@ -52,6 +52,7 @@ async function query(sql, params) {
     return {rows:schedules.filter(r=>r.day>=0 && r.day<params[2] && (params[0].includes(r.home)||params[0].includes(r.away)))};
   }
   if(sql.includes('FROM user_profiles')) return {rows:[]};
+  if (sql.includes('FROM public.player_team_stints')) return { rows: [] };
   throw Error('Unexpected query '+sql);
 }
 const helperPath = 'src/lib/bracket/scheduleAuthority.ts';

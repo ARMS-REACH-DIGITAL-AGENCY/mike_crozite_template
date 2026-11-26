@@ -47,12 +47,13 @@ export function recordedRequest(snapshot: Snapshot, reportDate?: string): typeof
     // Keep the captured schedule's clubs even while hiding their future
     // result lines, so an empty result feed is never manufactured as proof
     // that tomorrow has no scheduled games.
-    const clubNames = new Set([...Object.values(roster).flat().map(p => p[4]), ...windowLines.map(line => line[6])].filter(Boolean));
+    const people = new Set(Object.values(roster).flat().map(p => p[0]));
+    const clubStints = Object.fromEntries(Object.entries(snapshot.live.clubStints || {}).filter(([id]) => people.has(id)));
+    const clubNames = new Set([...Object.values(roster).flat().map(p => p[4]), ...windowLines.map(line => line[6]), ...Object.values(clubStints).flat().filter(([from,to]) => from < days && (to == null || to >= 0)).map(([, , club]) => club)].filter(Boolean));
     const clubs = Object.fromEntries(Object.entries(snapshot.live.clubs).filter(([club]) => clubNames.has(club)).map(([club, games]) => [club, games.filter(g => g[0] >= 0 && g[0] < days && g[0] <= lastDay)]).filter(([, games]) => (games as unknown[]).length));
     const games = Object.fromEntries(Object.entries(snapshot.live.games || {}).filter(([club]) => clubNames.has(club)).map(([club, list]) => [club, list.filter(g => g[0] >= 0 && g[0] < days).map(g => g[0] <= lastDay ? g : [g[0], g[1], 0, 0, g[4]])]).filter(([, list]) => (list as unknown[]).length));
-    const people = new Set(Object.values(roster).flat().map(p => p[0]));
     const fans = Object.fromEntries(hsids.filter(h => snapshot.live.fans?.[h]?.slice(0, weeks).some(n => n > 0)).map(h => [h, snapshot.live.fans![h].slice(0, weeks)]));
-    return Response.json({ asOf: reportDate || snapshot.live.asOf, start: snapshot.start, weeks, roster, lines, clubs, games, fans,
+    return Response.json({ asOf: reportDate || snapshot.live.asOf, start: snapshot.start, weeks, roster, lines, clubs, games, fans, ...(snapshot.live.clubStints ? { clubStints } : {}),
       yatIdentityBySourceId: Object.fromEntries(Object.entries(snapshot.live.yatIdentityBySourceId || {}).filter(([, id]) => people.has(id))),
     });
   }) as typeof fetch;
@@ -61,7 +62,7 @@ export function recordedRequest(snapshot: Snapshot, reportDate?: string): typeof
 export function normalizedSource(input: Live) {
   const sorted = (rows: unknown[][]) => [...rows].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   const groups = (map: Record<string, unknown[][]>) => Object.fromEntries(Object.keys(map).sort().map(k => [k, sorted(map[k])]));
-  return { roster: groups(input.roster), lines: sorted(input.lines), clubs: groups(input.clubs), games: groups(input.games || {}),
+  return { roster: groups(input.roster), lines: sorted(input.lines), clubs: groups(input.clubs), games: groups(input.games || {}), ...(input.clubStints ? { clubStints: groups(input.clubStints) } : {}),
     fans: Object.fromEntries(Object.entries(input.fans || {}).sort(([a], [b]) => a.localeCompare(b))),
     aliases: Object.fromEntries(Object.entries(input.yatIdentityBySourceId || {}).sort(([a], [b]) => a.localeCompare(b))) };
 }
