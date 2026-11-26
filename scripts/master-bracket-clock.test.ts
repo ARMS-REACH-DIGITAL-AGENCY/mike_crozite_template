@@ -33,12 +33,12 @@ function feed(): Live {
 // Only IO is replaced. runSeason, its production transport, scorer, frozen
 // day handling and writer execute unchanged. Actual Postgres persistence is
 // covered by the isolated full-season replay, not claimed by this unit test.
-function database(seed: Row = initial, archive: Record<string, any> = {}) {
+function database(seed: Row = initial, archive: Record<string, any> = {}, otherRows: Row[] = []) {
   let row: Row = structuredClone(seed);
   const archiveReads: string[] = [];
   const writes: { sql: string; values: unknown[] }[] = [];
   const query = async (sql: string, values: unknown[] = []) => {
-    if (sql === SQL_ROWS) return { rows: [row] };
+    if (sql === SQL_ROWS) return { rows: [row, ...otherRows] };
     if (sql === SQL_RULINGS) return { rows: [] };
     if (sql === SQL_CLUB_ARCHIVE_EXISTS) return { rows: [{ relation: 'bracket_rehearsal_days' }] };
     if (sql === SQL_CLUB_ARCHIVE) { archiveReads.push(String(values[1])); return { rows: archive[String(values[1])] ? [structuredClone(archive[String(values[1])])] : [] }; }
@@ -264,7 +264,12 @@ test('game 3679: midweek arrival preserves frozen rows in weekly YAT ID order', 
   };
   live.lines = [['13070','YAT183426',23,'p',[12,0,0,1,6,4,2,2],'820424','Palm Beach Cardinals',1,'A']];
   live.clubs = {'Palm Beach Cardinals': [[22,'820423',1,3],[23,'820424',1,2]]};
-  const db = database({...initial,stage:'total_runs',region:0,round:2,series_no:199,game_id:3679,week:4,home_hsid:13070,away_hsid:6289});
+  // buildIndex gets the registered field from bracket rows, not total-runs rows.
+  // An unplayed future bracket row supplies the field without writing another
+  // scored game into this single-game persistence fixture.
+  const db = database({...initial,stage:'total_runs',region:0,round:2,series_no:199,game_id:3679,week:4,home_hsid:13070,away_hsid:6289}, {}, [
+    {...initial,game_id:99999,week:5,round:2,home_hsid:13070,away_hsid:6289},
+  ]);
   const run = (asof:string) => runSeason(db.pool,season,asof,{base:'https://replay.invalid',effectiveAt:asof+'T11:00:00Z',request:async()=>Response.json(live)});
   await run('2026-04-16');
   const before = structuredClone(db.row().box_in_progress!.h);
