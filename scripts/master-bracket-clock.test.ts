@@ -293,3 +293,35 @@ test('game 3679: midweek arrival preserves frozen rows in weekly YAT ID order', 
     assert.deepEqual(side.days!.reduce((wl,day)=>[wl[0]+(day[i][8]?.[0]??0),wl[1]+(day[i][8]?.[1]??0)],[0,0]),expected);
   }
 });
+
+ 
+// Orange Lutheran vs Northview, March 30-April 5, 2026 (game 2).
+// Actual roster dates and game IDs from the saved replay and player Game Log.
+test('Tarlow: historical club membership on non-appearance days, not July current club', async () => {
+  const id = 'YAT117822';
+  const stl = 'St. Louis Cardinals', sp = 'Springfield Cardinals', mem = 'Memphis Redbirds';
+  const live: Live = {
+    asOf: '2026-04-05',
+    roster: {'8805': [[id, 'Graysen Tarlow', 'TRIPLE-A', 0, mem]], '1641': []},
+    lines: [['8805',id,12,'b',[5,3,0,0,0,0,1,1,0],'817666',sp,1,'AA']],
+    clubStints: {[id]: [[-56,11,stl],[12,123,sp],[124,null,mem]]},
+    clubs: {
+      [stl]: [[7,'823080',0,-2],[8,'823077',1,3],[9,'823078',1,1],[11,'824299',0,-4],[12,'824295',0,-5],[13,'824296',1,2]],
+      [sp]: [[11,'817671',1,9],[12,'817666',1,3],[13,'817670',1,2]],
+      [mem]: [[8,'816225',1,5],[9,'816227',1,1],[10,'816228',1,4],[11,'816226',1,1],[13,'816220',1,4],[13,'816217',0,-8]],
+    },
+  };
+  const db = database({...initial,game_id:2,game_no:2,week:2,home_hsid:8805,away_hsid:1641});
+  const request: typeof fetch = async () => Response.json(live);
+  for (const day of ['2026-03-30','2026-03-31','2026-04-01','2026-04-02','2026-04-03','2026-04-04','2026-04-05']) {
+    const next = new Date(Date.parse(day+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+    await runSeason(db.pool,season,day,{base:'https://replay.invalid',effectiveAt:next+'T10:59:59Z',request});
+  }
+  await runSeason(db.pool,season,'2026-04-06',{base:'https://replay.invalid',effectiveAt:'2026-04-06T11:00:00Z',request});
+  const box = db.row().box_in_progress!.h;
+  assert.deepEqual(box.p[0][8],[4,2]);
+  assert.deepEqual(box.days!.map(rows=>rows[0][8]),[[0,1],[1,0],[1,0],[0,0],[0,1],[1,0],[1,0]]);
+  assert.deepEqual(box.clubGames?.[id].flat().map(g=>g[0]),['823080','823077','823078','824299','817666','817670']);
+  assert.deepEqual(box.wl,[4,2]);
+  assert.equal(box.rd,3);
+});
