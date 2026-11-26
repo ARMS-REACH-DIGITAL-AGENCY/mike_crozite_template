@@ -54,13 +54,15 @@
 //     alumnus's latest team), and prints the SQL it would run.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { Pool, type PoolClient } from 'pg';
 import { bracketOrder, pairEliminated } from '@/lib/bracket/engine';
 import { tournamentWeeks } from '@/lib/bracket/tournamentCalendar';
 import { COMMISSIONER_DECISIONS } from '@/lib/bracket/commissioner';
 import { scoreLive, type Live, type FrozenClubDays } from '@/components/bracket/liveSeason';
 import { fetchBracketLiveBatches as fetchLive } from '@/lib/bracket/fetchLiveBatches';
-import type { GameBox, GameRow, Index, SeriesRow } from '@/components/bracket/gallery';
+import type { ClubGameFact, GameBox, GameRow, Index, PlayerRow, SeriesRow, SideBox } from '@/components/bracket/gallery';
 import { tieNote } from '@/lib/bracket/tieNote';
 
 type Season = { season_key: string; is_test: boolean; opening_day: string; last_day: string; weeks: number; regions: number; schools_per_region: number };
@@ -177,6 +179,189 @@ function freezeClosedDays(res: Result, row: Row, weekStart: string) {
     if (was.h.days?.[d] && res.box.h.days) res.box.h.days[d] = was.h.days[d];
     if (was.a.days?.[d] && res.box.a.days) res.box.a.days[d] = was.a.days[d];
   }
+}
+
+// The historical capture and immutable cutoff result use this same canonical
+// JSON hash (scripts/rehearse-production-bracket.ts). This is intentionally
+// local to the server writer, not a browser-side or database repair path.
+function canonicalArchiveJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(canonicalArchiveJson).join(',') + ']';
+  const row = value as Record<string, unknown>;
+  return '{' + Object.keys(row).sort().map(key => JSON.stringify(key) + ':' + canonicalArchiveJson(row[key])).join(',') + '}';
+}
+export function clubArchiveHash(value: unknown): string {
+  return createHash('sha256').update(canonicalArchiveJson(value)).digest('hex');
+}
+
+type ClubArchive = {
+  report_date: string;
+  branch_id: string;
+  effective_at: string;
+  phase: string;
+  evidence: {
+    branch?: string; endpoint?: string; reportDate?: string; cutoffAt?: string;
+    fieldHash?: string; commit?: string; sourceHash?: string; storedHash?: string; ingestion?: unknown;
+  };
+  source_snapshot: { start: string; weeks: number; branch: string; endpoint: string; commit: string; fieldHash: string; live: Live };
+  stored_results: Array<Pick<Row, 'stage' | 'region' | 'game_id' | 'week' | 'home_hsid' | 'away_hsid' | 'computed_at' | 'locked_at' | 'status'> & { box: GameBox }>;
+};
+export const SQL_CLUB_ARCHIVE_EXISTS = "SELECT to_regclass('public.bracket_rehearsal_days')::text AS relation";
+export const SQL_CLUB_ARCHIVE = `SELECT report_date::text,branch_id,effective_at::text,phase,evidence,source_snapshot,stored_results
+  FROM public.bracket_rehearsal_days WHERE season_key=$1 AND report_date=$2::date`;
+const offsetDate = (day: string, n: number) => iso(Date.parse(day + 'T00:00:00Z') + n * 86400000);
+const wlOf = (facts: ClubGameFact[]) => [facts.reduce((n, fact) => n + fact[1], 0), facts.filter(fact => fact[1] === 0).length];
+
+function exactFacts(facts: ClubGameFact[] | undefined, row: PlayerRow, label: string): ClubGameFact[] {
+  if (!Array.isArray(facts) || facts.some(fact => !Array.isArray(fact) || fact.length !== 3
+      || typeof fact[0] !== 'string' || !fact[0] || ![0, 1].includes(fact[1]) || !Number.isFinite(fact[2]))
+      || new Set(facts.map(fact => fact[0])).size !== facts.length
+      || !Array.isArray(row[8]) || !isDeepStrictEqual(wlOf(facts), row[8])) {
+    throw new Error('Locked club game identity cannot be reconciled from archive: ' + label);
+  }
+  return facts;
+}
+
+/**
+ * Read-only legacy fallback. Before #907 some already-closed daily ledgers
+ * did not retain the real game IDs. The current feed is NOT evidence for
+ * those dates, even when it happens to have the same W-L. Reconstruct each
+ * missing day's identities using the production scorer and that day's own
+ * verified cutoff capture. Return copies of in-progress rows only; never
+ * update an old checkpoint or change any saved player/score value.
+ */
+export async function recoverLockedClubIdentities(
+  db: Pick<Pool, 'query'>, season: Season, rows: Row[],
+): Promise<Row[]> {
+  const requests = new Map<string, { row: Row; day: number; sides: ('h' | 'a')[] }[]>();
+  const copies = new Map<Row, Row>();
+  const weeks = tournamentWeeks(season.opening_day, season.weeks);
+  for (const row of rows) {
+    const box = row.box_in_progress;
+    const start = weeks[row.week - 1]?.[0];
+    if (row.locked_at || !row.computed_at || !box || !start) continue;
+    const closed = Math.max(0, Math.min(7, daysFrom(start, bracketDay(Date.parse(row.computed_at)))));
+    for (let day = 0; day < closed; day++) {
+      const sides = (['h', 'a'] as const).filter(side => {
+        const stored = box[side].days?.[day];
+        if (!Array.isArray(stored)) throw new Error('Missing locked daily ledger: game ' + row.game_id + ', day ' + day);
+        return stored.some(player => box[side].clubGames?.[player[0]]?.[day] === undefined);
+      });
+      if (!sides.length) continue;
+      const date = offsetDate(start, day);
+      const list = requests.get(date) || [];
+      list.push({ row, day, sides });
+      requests.set(date, list);
+      if (!copies.has(row)) copies.set(row, { ...row, box_in_progress: structuredClone(box) });
+    }
+  }
+  if (!requests.size) return rows;
+  const { rows: [relation] } = await db.query<{ relation: string | null }>(SQL_CLUB_ARCHIVE_EXISTS);
+  if (relation?.relation !== 'bracket_rehearsal_days' && relation?.relation !== 'public.bracket_rehearsal_days') {
+    throw new Error('Locked club game identity cannot be reconciled: no archived cutoff source');
+  }
+  for (const [date, pending] of [...requests.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const { rows: captures } = await db.query<ClubArchive>(SQL_CLUB_ARCHIVE, [season.season_key, date]);
+    const archive = captures[0];
+    const cutoff = offsetDate(date, 1) + 'T11:00:00Z';
+    const snapshot = archive?.source_snapshot;
+    const evidence = archive?.evidence;
+    const maxDay = daysFrom(season.opening_day, date);
+    const input = snapshot?.live;
+    if (captures.length !== 1 || !snapshot || !evidence || archive.report_date !== date
+      || archive.phase !== 'awaiting_review' || Date.parse(archive.effective_at) !== Date.parse(cutoff)
+      || evidence.reportDate !== date || Date.parse(evidence.cutoffAt || '') !== Date.parse(cutoff)
+      || !archive.branch_id || snapshot.branch !== archive.branch_id || evidence.branch !== archive.branch_id
+      || !snapshot.endpoint || snapshot.endpoint !== evidence.endpoint
+      || !snapshot.commit || snapshot.commit !== evidence.commit
+      || !snapshot.fieldHash || snapshot.fieldHash !== evidence.fieldHash
+      || snapshot.start !== season.opening_day || !Number.isInteger(snapshot.weeks) || maxDay < 0 || maxDay >= snapshot.weeks * 7
+      || !input?.roster || !Array.isArray(input.lines) || !input.clubs || !evidence.ingestion
+      || input.lines.some(line => !Number.isInteger(line[2]) || line[2] > maxDay)
+      || Object.values(input.clubs).some(list => !Array.isArray(list) || list.some(game => !Number.isInteger(game[0]) || game[0] > maxDay))
+      || !Array.isArray(archive.stored_results)
+      || clubArchiveHash(input) !== evidence.sourceHash || clubArchiveHash(archive.stored_results) !== evidence.storedHash) {
+      throw new Error('Locked club game identity cannot be reconciled: missing or invalid archived cutoff ' + date);
+    }
+    // Recompute only the needed game's input view, in memory, using the same
+    // scorer that originally credited club results. Never use current live
+    // data or the previous/next day's archive to choose an identity.
+    const archivedRows = new Map<string, ClubArchive['stored_results'][number]>();
+    for (const r of archive.stored_results) {
+      const key = r.region + '/' + r.game_id;
+      if (archivedRows.has(key)) throw new Error('Duplicate archived bracket game: ' + key);
+      archivedRows.set(key, r);
+    }
+    for (const p of pending) {
+      const key = p.row.region + '/' + p.row.game_id;
+      const saved = archivedRows.get(key);
+      if (!saved || saved.stage !== p.row.stage || saved.week !== p.row.week
+        || saved.home_hsid !== p.row.home_hsid || saved.away_hsid !== p.row.away_hsid
+        || Date.parse(saved.computed_at || '') !== Date.parse(cutoff)
+        || saved.box?.f?.[p.day]?.[0] !== true || saved.box?.f?.[p.day]?.[1] !== true
+        || !Object.prototype.hasOwnProperty.call(input.roster, String(p.row.home_hsid))
+        || !Object.prototype.hasOwnProperty.call(input.roster, String(p.row.away_hsid))) {
+        throw new Error('Locked club game identity cannot be reconciled: archived game/field mismatch ' + date + '/' + key);
+      }
+    }
+    // Test brackets may reuse a game ID in different regions, just as
+    // computeSeason scores them separately. Use the same region grouping.
+    const groups = season.is_test
+      ? [...new Set(pending.map(p => p.row.region))].map(region => pending.filter(p => p.row.region === region))
+      : [pending];
+    for (const group of groups) {
+      const reconstructed = scoreLive(buildIndex(season, group.map(p => p.row)), input, offsetDate(date, 1));
+      for (const { row, day, sides } of group) {
+        const saved = archivedRows.get(row.region + '/' + row.game_id)!.box;
+        const recovered = reconstructed[String(row.game_id)];
+        const copy = copies.get(row)!.box_in_progress!;
+        for (const side of sides) {
+          const before = row.box_in_progress![side].days![day];
+          const archivedDay = saved[side].days?.[day];
+          if (!isDeepStrictEqual(before, archivedDay) || !recovered?.[side].clubGames
+            || !Array.isArray(recovered[side].days?.[day])) {
+            throw new Error('Locked club game identity cannot be reconciled: saved day differs from archived cutoff ' + date + '/' + row.game_id + '/' + side);
+          }
+          const target: SideBox = copy[side];
+          const computed = new Map(recovered[side].days![day].map(player => [player[0], player]));
+          for (const player of before) {
+            const id = player[0];
+            const label = date + '/' + row.game_id + '/' + side + '/' + id;
+            if (!computed.has(id)) throw new Error('Locked club game identity cannot be reconciled: missing archived player ' + label);
+            const facts = exactFacts(recovered[side].clubGames![id]?.[day], player, label);
+            const slots = (target.clubGames ||= {})[id] ||= [];
+            if (slots[day] !== undefined && !isDeepStrictEqual(slots[day], facts)) {
+              throw new Error('Locked club game identity cannot be reconciled: conflicting stored identities ' + label);
+            }
+            slots[day] = facts;
+          }
+        }
+      }
+    }
+  }
+  // A provider may have moved a game even between two legacy cutoff days.
+  // A duplicate across those already-locked days is not safely recoverable:
+  // fail rather than edit a closed ledger.
+  for (const row of copies.values()) {
+    const box = row.box_in_progress!;
+    const start = weeks[row.week - 1][0];
+    const closed = Math.max(0, Math.min(7, daysFrom(start, bracketDay(Date.parse(row.computed_at!)))));
+    for (const side of ['h', 'a'] as const) {
+      const seen = new Map<string, Set<string>>();
+      for (let day = 0; day < closed; day++) {
+        for (const player of box[side].days![day]) {
+          const facts = exactFacts(box[side].clubGames?.[player[0]]?.[day], player, row.game_id + '/' + player[0] + '/' + day);
+          const credited = seen.get(player[0]) || new Set<string>();
+          for (const fact of facts) {
+            if (credited.has(fact[0])) throw new Error('Locked club game identity cannot be reconciled: duplicate game already credited on closed days ' + row.game_id + '/' + player[0] + '/' + fact[0]);
+            credited.add(fact[0]);
+          }
+          seen.set(player[0], credited);
+        }
+      }
+    }
+  }
+  return rows.map(row => copies.get(row) || row);
 }
 
 // Score one group of rows (a test bracket, or a whole 2027 season) and say
@@ -804,7 +989,8 @@ export async function runSeason(pool: Pool, season: Season, asof: string, opts: 
     if (!weeks || !rows.length) break;
     const live = await fetchLive(opts.base, season.opening_day, Math.min(weeks, 40), fieldOf(rows), opts.request);
     const clubs = clubsOf(live, await loadTeams(pool, rows, live, asof));
-    const out = computeSeason(season, rows, rulings, live, asof, withBox, clubs);
+    const recoveredRows = await recoverLockedClubIdentities(pool, season, rows);
+    const out = computeSeason(season, recoveredRows, rulings, live, asof, withBox, clubs);
     passes.push({
       results: out.results.length, final: out.results.filter((r) => r.lock).length, fills: out.fills.length,
       boxFills: out.boxFills.length, decisions: out.decisions.map((d) => d.summary),
