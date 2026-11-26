@@ -33,4 +33,12 @@ for(const [name,route] of [['Stories',read('src/app/api/stories/[id]/tags/route.
 assert.ok(tag.includes('body.light-theme .ypt-panel'),'Tag panel follows light mode');
 assert.ok(tag.includes('color:var(--ypt-fg)!important'),'Search results use the panel text color');
 assert.ok(tag.includes('Saving tags…'),'Tag mutation shows visible progress');
+const retiredMemory=read('src/components/yatstats/WhereYatMemory.tsx');
+assert.ok(feed.includes('show(s, 0, true)'),'Stories comment action opens the photo viewer');
+assert.ok(retiredMemory.includes('onOpenComment={()=>openViewer(true)}'),'Retired comment action opens the same photo viewer');
+assert.doesNotMatch(viewer,/ysv-comment-mode/,'Comment never switches to a photo-hiding layout');
+assert.ok(viewer.includes('grid-template-rows: minmax(0, 42dvh) minmax(0, 1fr)'),'Mobile viewer keeps photo and discussion rows');
+assert.ok(viewer.includes('min-height:min(112px,28dvh);max-height:min(220px,40dvh)'),'Mobile composer is taller with viewport-aware limits');
+assert.ok(viewer.includes('useCommentComposerHeight(composerRef, draft, Boolean(me))'),'Regular stories grow their comment composer');
+assert.ok(retired.includes('useCommentComposerHeight(composerRef,draft,composerOpen&&Boolean(me))'),'Retired memories use the same auto-growing composer');
 console.log('PASS: original three equal social buttons restored; Tag gets separate right-aligned row, picker full card width, player search and existing tags preserved.');
