@@ -8,6 +8,23 @@ import { readNewsletterRecipientDirectory } from '@/lib/newsletter/recipientDire
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const reply=(value:unknown,status=200)=>NextResponse.json(value,{status,headers:{'Cache-Control':'private, no-store, max-age=0'}});
+// Only known relations from the preferences read path may be disclosed.
+// PostgreSQL 42501 does not always populate the structured table field.
+const preferenceRelations=new Set([
+  'newsletter_recipients','newsletter_favorites','user_scoreboard_schools',
+  'user_profiles','user_favorites','alumni_newsletter_preferences',
+  'alumni_newsletter_control','school_success',
+]);
+function deniedRelation(error:unknown):string|undefined {
+  const pg=error as {code?:string;table?:string;message?:string}|null;
+  if(pg?.code!=='42501') return undefined;
+  const safe=(value:unknown):value is string=>typeof value==='string'&&preferenceRelations.has(value);
+  if(safe(pg.table)) return pg.table;
+  const relation=typeof pg.message==='string'
+    ? /^permission denied for (?:table|view|relation) (?:public\.)?([a-z_][a-z0-9_]*)$/.exec(pg.message)?.[1]
+    : undefined;
+  return safe(relation)?relation:undefined;
+}
 export async function POST(request:NextRequest) {
   const token=process.env.REHEARSAL_LIVE_FAN_TOKEN;
   const given=request.headers.get('authorization') || '';
@@ -49,8 +66,9 @@ export async function POST(request:NextRequest) {
       const reason=error instanceof Error && error.message==='Not the verified production database' ? 'endpoint_identity_mismatch' :
         code==='42501' ? 'database_permission_denied' : code==='42P01' || code==='42703' ? 'database_schema_mismatch' :
         'recipient_preferences_unresolved';
-      console.error('[rehearsal-newsletter-preferences]',reason);
-      return reply({error:reason},409);
+      const table=deniedRelation(error);
+      console.error('[rehearsal-newsletter-preferences]',reason,...(table?[table]:[]));
+      return reply({error:reason,...(table?{table}:{})},409);
     } finally { db.release(); }
   } catch { return reply({error:'production source unavailable'},503); }
   finally { await pool.end(); }
