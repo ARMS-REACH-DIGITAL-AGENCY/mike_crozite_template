@@ -7,6 +7,7 @@ import { publishNewsletterDay, readNewsletterReview, deliverNewsletterEdition } 
 import { lookupGHLContactByEmail } from '@/lib/gohighlevel';
 import { sendDailyPilotEmail } from '@/lib/alumniEmailSender';
 import { publishNewsletterPictures, type PictureRun } from '@/lib/newsletter/newsletterImagesServer';
+import { normalizeNewsletterRecipients } from '@/lib/newsletter/recipientDirectory';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export const maxDuration=300;
@@ -38,10 +39,11 @@ export async function GET(request:NextRequest){
   // after a Sunday the Gazette's banner, team logos and boards, drawn and stored before
   // the emails go out. A picture that fails is logged; the editions still go out.
   const {rows:fans}=await pool.query<{email:string;home_hsid:number|null}>("SELECT email,home_hsid FROM public.newsletter_recipients WHERE coalesce(email,'')<>'' ORDER BY email");
-  const recipients=[...new Set(fans.map(f=>String(f.email).trim().toLowerCase()))];
+  const directory=normalizeNewsletterRecipients(fans);
+  const recipients=directory.map(fan=>fan.email);
   let pictures:PictureRun|{error:string};
   try {
-   pictures=await publishNewsletterPictures(pool,{season:seasons[0].season_key,hsids:[...new Set(fans.map(f=>Number(f.home_hsid)).filter(Boolean))],periods:publication.periods,base:request.nextUrl.origin});
+   pictures=await publishNewsletterPictures(pool,{season:seasons[0].season_key,hsids:[...new Set(directory.flatMap(fan=>fan.homeHsids))],periods:publication.periods,base:request.nextUrl.origin});
   } catch(error) {
    pictures={error:error instanceof Error?error.message:String(error)};
   }
