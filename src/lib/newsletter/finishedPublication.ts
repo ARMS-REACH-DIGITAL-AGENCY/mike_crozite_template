@@ -19,7 +19,7 @@ export const GAZETTE_SPONSOR_TEXT = 'And finally, a special thanks needs to go o
 export type ReadDatabase = { query(sql: string, values?: any[]): Promise<{ rows: Row[] }> };
 export type Cadence = 'daily' | 'weekly';
 export type EditionRequest = {
-  cadence: Cadence; date: string; email: string; seasonKey: string; region?: number;
+  cadence: Cadence; date: string; email: string; seasonKey: string; region?: number; firebaseUid?: string;
 };
 export type FinishedEdition = {
   version: 'finished-publication-v1';
@@ -84,8 +84,42 @@ function checkReady(ready: Row, request: EditionRequest) {
   if (Object.entries(ready.row_counts || {}).some(([name, count]) => name.startsWith('missing_') && Number(count) > 0)) throw new Error('The ready record reports missing publication rows');
 }
 
-/** Call on one read-only, repeatable-read transaction when reading a database. */
-export async function readFinishedEdition(db: ReadDatabase, request: EditionRequest): Promise<FinishedEdition> {
+export type NewsletterPreferenceRequest = Pick<EditionRequest, 'email' | 'cadence' | 'firebaseUid'>;
+export type NewsletterPreferences = { recipient: Row; favorites: string[]; picks: Row[] };
+export type NewsletterPreferenceLoader = (request: NewsletterPreferenceRequest) => Promise<NewsletterPreferences>;
+
+/** One authoritative query path for live delivery and authorized QA review.
+ * Call inside a new read-only, repeatable-read transaction for each edition.
+ * Never use a previous edition's preferences to construct a new edition. */
+export async function readNewsletterPreferences(db: ReadDatabase, request: NewsletterPreferenceRequest): Promise<NewsletterPreferences> {
+  const email = request.email.trim().toLowerCase();
+  if (!email || !['daily','weekly'].includes(request.cadence)) throw new Error('Valid newsletter recipient and cadence required');
+  const recipients = (await db.query(
+    'SELECT firebase_uid, email, first_name, home_hsid, home_school_name, plan, is_superfan FROM newsletter_recipients WHERE lower(email)=$1' +
+    (request.firebaseUid ? ' AND firebase_uid=$2' : ''), request.firebaseUid ? [email, request.firebaseUid] : [email])).rows;
+  if (recipients.length !== 1 || !Number.isInteger(Number(recipients[0].home_hsid))) throw new Error('Recipient must resolve to one existing home school');
+  const recipient = recipients[0];
+  const favoriteRows = (await db.query("SELECT to_jsonb(f)->>'yatid' AS yatid FROM newsletter_favorites f WHERE firebase_uid=$1", [recipient.firebase_uid])).rows;
+  const favorites = [...new Set(favoriteRows.map(row => yat(row.yatid)))].sort();
+  const picks = request.cadence === 'daily'
+    ? (await db.query('SELECT position, hsid, label FROM user_scoreboard_schools WHERE firebase_uid=$1 ORDER BY position', [recipient.firebase_uid])).rows : [];
+  return { recipient, favorites, picks };
+}
+
+/** Validate an externally obtained preference snapshot before selecting finished rows. */
+function checkedPreferences(value: NewsletterPreferences, request: NewsletterPreferenceRequest): NewsletterPreferences {
+  if (!value?.recipient || String(value.recipient.email).trim().toLowerCase() !== request.email.trim().toLowerCase()
+    || !value.recipient.firebase_uid || (request.firebaseUid && value.recipient.firebase_uid !== request.firebaseUid)
+    || !Number.isInteger(Number(value.recipient.home_hsid)) || !Array.isArray(value.favorites) || !Array.isArray(value.picks))
+    throw new Error('Live newsletter preference snapshot does not match the requested account');
+  return { recipient: value.recipient, favorites: [...new Set(value.favorites.map(yat))].sort(), picks: value.picks };
+}
+
+/** Call on one read-only, repeatable-read transaction when reading a database.
+ * Production reads preferences from that transaction. The rehearsal supplies
+ * the authenticated live source; the finished scores stay in its QA DB. */
+export async function readFinishedEdition(db: ReadDatabase, request: EditionRequest,
+  loadPreferences: NewsletterPreferenceLoader = r => readNewsletterPreferences(db,r)): Promise<FinishedEdition> {
   dateOnly(request.date);
   if (!['daily', 'weekly'].includes(request.cadence) || !request.email || !request.seasonKey) throw new Error('Cadence, recipient and season are required');
   const readyRows = (await db.query('SELECT cadence, period_start::text, period_end::text, season_key, week, cutoff_at, ready_at, row_counts FROM edition_ready WHERE cadence=$1 AND period_start=$2', [request.cadence, request.date])).rows;
@@ -99,24 +133,17 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
     const actual = Number((await db.query('SELECT count(*)::int AS count FROM ' + table + ' WHERE ' + column + '=$1', [request.date])).rows[0]?.count);
     if (!Number.isInteger(ready.row_counts?.[table]) || actual !== ready.row_counts[table]) throw new Error('Finished publication count differs from edition_ready: ' + table);
   }
-  const recipients = (await db.query('SELECT firebase_uid, email, first_name, home_hsid, home_school_name, plan, is_superfan FROM newsletter_recipients WHERE lower(email)=$1', [request.email.trim().toLowerCase()])).rows;
-  if (recipients.length !== 1 || !Number.isInteger(Number(recipients[0].home_hsid))) throw new Error('Recipient must resolve to one existing home school');
-  const recipient = recipients[0];
+  const { recipient, favorites, picks } = checkedPreferences(await loadPreferences(request), request);
   const controls = (await db.query('SELECT enabled, approved_layout_version, approved_by FROM alumni_newsletter_control')).rows;
   if (controls.length !== 1) throw new Error('Newsletter control must have one existing record; preview does not change it');
   const rows: FinishedEdition['rows'] = { daily_stat_lines: [], daily_game_stories: [], daily_game_scores: [], weekly_player_lines: [], weekly_box_scores: [] };
-  let favorites: string[] = [], picks: Row[] = [], nearby: number[] = [];
+  let nearby: number[] = [];
   let selected: Row[] = [];
   if (request.cadence === 'daily') {
-    // to_jsonb makes an incomplete YAT transition an explicit failure without
-    // falling back to a legacy player-number join.
-    const favoriteRows = (await db.query("SELECT to_jsonb(f)->>'yatid' AS yatid FROM newsletter_favorites f WHERE firebase_uid=$1", [recipient.firebase_uid])).rows;
-    favorites = [...new Set(favoriteRows.map(row => yat(row.yatid)))].sort();
     rows.daily_stat_lines = (await db.query('SELECT * FROM daily_stat_lines WHERE stats_date=$1 AND yatid=ANY($2::text[]) ORDER BY sort_key, stat_line_id', [request.date, favorites])).rows;
     rows.daily_stat_lines.forEach(row => yat(row.yatid));
     const scores = (await db.query('SELECT * FROM daily_game_scores WHERE stats_date=$1 AND season_key=$2 ORDER BY region, game_id', [request.date, request.seasonKey])).rows;
     selected = homeGames(scores, Number(recipient.home_hsid), request.region);
-    picks = (await db.query('SELECT position, hsid, label FROM user_scoreboard_schools WHERE firebase_uid=$1 ORDER BY position', [recipient.firebase_uid])).rows;
     const region = selected[0]?.region ?? request.region ?? null;
     // The scoreboard is the home school's game, then the games of the 7
     // schools closest to it (Pete, Nov 25 2026; school_nearest_schools). Until
@@ -133,8 +160,6 @@ export async function readFinishedEdition(db: ReadDatabase, request: EditionRequ
     rows.weekly_player_lines = (await db.query('SELECT * FROM weekly_player_lines WHERE period_start=$1 AND hsid=$2 AND season_key=$3 ORDER BY sort_key, yatid', [request.date, Number(recipient.home_hsid), request.seasonKey])).rows;
     rows.weekly_player_lines.forEach(row => yat(row.yatid));
     // The Gazette's Superfan favorites: shared weekly rows, read for this fan's YAT IDs.
-    const favoriteRows = (await db.query("SELECT to_jsonb(f)->>'yatid' AS yatid FROM newsletter_favorites f WHERE firebase_uid=$1", [recipient.firebase_uid])).rows;
-    favorites = [...new Set(favoriteRows.map(row => yat(row.yatid)))].sort();
     rows.weekly_player_totals = favorites.length ? (await db.query('SELECT * FROM weekly_player_totals WHERE period_start=$1 AND yatid=ANY($2::text[]) ORDER BY yatid', [request.date, favorites])).rows : [];
     const boxes = (await db.query('SELECT * FROM weekly_box_scores WHERE period_start=$1 AND season_key=$2 AND week=$3 ORDER BY region, game_id', [request.date, request.seasonKey, ready.week])).rows;
     selected = homeGames(boxes, Number(recipient.home_hsid), request.region);
