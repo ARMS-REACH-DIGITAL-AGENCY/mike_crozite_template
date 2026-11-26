@@ -17,7 +17,7 @@
 //   Inning 9 - real W-L of every pro alumnus's club that week, from the
 //              team stints (on the roster counts, played or not); college
 //              results aren't loaded, so a school with only college alumni
-//              counts as .500.
+//              has a .000 club winning percentage.
 //
 // The tournament:
 //   Weeks 1-30 (Feb 2 - Aug 30): one continuous 1,024-school bracket,
@@ -879,7 +879,7 @@ function exportGallery(dir: string) {
   const index = {
     season: 2026,
     snapshot: { id: 'sim-2026-v2', schema: 2, seed: SEED, generator: 'scripts/simulate-bracket-2026.ts' },
-    rules: { mode: MODE, absent: ABSENT, spring: SPRING },
+    rules: { mode: MODE, absent: ABSENT, spring: SPRING, emptyClubWinPct: 0, singleRunTiebreak: true },
     rosters,
     weeks: Array.from({ length: GRAND_FINAL_WEEK },(_, i) => [iso(weekStart(i + 1)), iso(weekStart(i + 1) + 6 * DAY)]),
     schools: Object.fromEntries([...schools.values()].map((s) => [s.hsid, [s.name, s.region, s.seed]])),
