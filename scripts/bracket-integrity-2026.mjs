@@ -162,6 +162,9 @@ function auditFixture(fixture, options = {}) {
   const lb = Array.isArray(lbRaw) ? lbRaw : (lbRaw.games || []);
   const absent = index.rules?.absent || 'hold';
   const mode = index.rules?.mode || 'adjusted';
+  // Existing shipped practice fixtures are immutable historical artifacts.
+  // Newly generated fixtures must declare the current .000 scoring rule.
+  const emptyClubWinPct = index.rules?.emptyClubWinPct === 0 ? 0 : 0.5;
   const details = new Map();
   const allGames = [];
   const regularGames = [];
@@ -271,7 +274,7 @@ function auditFixture(fixture, options = {}) {
 
     if (innings.length >= 18) {
       const hp0 = pct(box.h?.wl), ap0 = pct(box.a?.wl);
-      const hp = hp0 ?? 0.5, ap = ap0 ?? 0.5;
+      const hp = hp0 ?? emptyClubWinPct, ap = ap0 ?? emptyClubWinPct;
       const expected = hp0 == null && ap0 == null ? [0, 0] : hp > ap ? [1, 0] : ap > hp ? [0, 1] : [0, 0];
       const saved = [Number(innings[16] || 0), Number(innings[17] || 0)];
       if (!sameArray(expected, saved)) rec.error('inning9-wl-disagreement', `game ${id} week ${week}: saved ${saved.join('-')}, expected ${expected.join('-')} from ${JSON.stringify(box.h?.wl)} vs ${JSON.stringify(box.a?.wl)}`);
@@ -281,44 +284,52 @@ function auditFixture(fixture, options = {}) {
       const regulation = score(innings.slice(0, 18));
       const decidedBy = String(game[4] || '');
       if (regulation[0] === regulation[1]) {
-        const expectedTb = expectedPlayerTiebreak(box);
-        const expectedExtra = expectedTb.innings.length + (expectedTb.kind === 'coin' ? 1 : 0);
-        const expectedLength = 18 + expectedExtra * 2;
-        if (innings.length !== expectedLength) {
-          rec.error('inning-vector-length', `game ${id}: expected ${expectedLength} values (${expectedExtra} extra inning(s)), found ${innings.length}`);
-        }
-
-        expectedTb.innings.forEach((expected, i) => {
-          const off = 18 + i * 2;
-          const saved = [Number(innings[off] || 0), Number(innings[off + 1] || 0)];
-          if (!sameArray(saved, expected)) {
-            rec.error('player-tiebreak-score-disagreement', `game ${id} week ${week} inning ${10 + i}: saved ${saved.join('-')}, expected ${expected.join('-')}`);
+        if (index.rules?.singleRunTiebreak === true) {
+          if (innings.length !== 20 || Number(innings[18] || 0) + Number(innings[19] || 0) !== 1) {
+            rec.error('one-run-tiebreak-invalid', `game ${id} week ${week}: regulation tied, expected exactly one winning run in the 10th`);
           }
-          if (saved[0] < 0 || saved[1] < 0 || saved[0] + saved[1] > 2) {
-            rec.error('player-tiebreak-run-invalid', `game ${id} week ${week} inning ${10 + i}: ${saved.join('-')}`);
-          }
-          if (i < expectedTb.innings.length - 1 && saved[0] !== saved[1]) {
-            rec.error('player-tiebreak-ended-late', `game ${id} week ${week}: inning ${10 + i} was already decisive at ${saved.join('-')}`);
-          }
-        });
-
-        if (expectedTb.kind === 'players') {
-          const expectedLabel = `players-${expectedTb.rank}`;
-          if (decidedBy !== expectedLabel) {
-            rec.error('player-tiebreak-method-disagreement', `game ${id} week ${week}: stored ${decidedBy}, expected ${expectedLabel}`);
-          }
-          const last = expectedTb.innings[expectedTb.innings.length - 1];
-          if (!last || last[0] === last[1]) {
-            rec.error('player-tiebreak-run-invalid', `game ${id} week ${week}: deciding tiebreak inning did not break the tie`);
-          }
+          // Rounded player values cannot certify full-precision percentile
+          // matchups. The live scoring engine's regression tests do that.
         } else {
-          if (decidedBy !== 'coin') {
-            rec.error('commissioner-flip-missed', `game ${id} week ${week}: roster exhausted at rank ${expectedTb.rank}, stored ${decidedBy}`);
+          const expectedTb = expectedPlayerTiebreak(box);
+          const expectedExtra = expectedTb.innings.length + (expectedTb.kind === 'coin' ? 1 : 0);
+          const expectedLength = 18 + expectedExtra * 2;
+          if (innings.length !== expectedLength) {
+            rec.error('inning-vector-length', `game ${id}: expected ${expectedLength} values (${expectedExtra} extra inning(s)), found ${innings.length}`);
           }
-          const off = 18 + expectedTb.innings.length * 2;
-          const coin = [Number(innings[off] || 0), Number(innings[off + 1] || 0)];
-          if (!sameArray(coin, [1, 0]) && !sameArray(coin, [0, 1])) {
-            rec.error('commissioner-flip-run-invalid', `game ${id} week ${week}: coin-flip inning must award exactly one run, saved ${coin.join('-')}`);
+  
+          expectedTb.innings.forEach((expected, i) => {
+            const off = 18 + i * 2;
+            const saved = [Number(innings[off] || 0), Number(innings[off + 1] || 0)];
+            if (!sameArray(saved, expected)) {
+              rec.error('player-tiebreak-score-disagreement', `game ${id} week ${week} inning ${10 + i}: saved ${saved.join('-')}, expected ${expected.join('-')}`);
+            }
+            if (saved[0] < 0 || saved[1] < 0 || saved[0] + saved[1] > 2) {
+              rec.error('player-tiebreak-run-invalid', `game ${id} week ${week} inning ${10 + i}: ${saved.join('-')}`);
+            }
+            if (i < expectedTb.innings.length - 1 && saved[0] !== saved[1]) {
+              rec.error('player-tiebreak-ended-late', `game ${id} week ${week}: inning ${10 + i} was already decisive at ${saved.join('-')}`);
+            }
+          });
+  
+          if (expectedTb.kind === 'players') {
+            const expectedLabel = `players-${expectedTb.rank}`;
+            if (decidedBy !== expectedLabel) {
+              rec.error('player-tiebreak-method-disagreement', `game ${id} week ${week}: stored ${decidedBy}, expected ${expectedLabel}`);
+            }
+            const last = expectedTb.innings[expectedTb.innings.length - 1];
+            if (!last || last[0] === last[1]) {
+              rec.error('player-tiebreak-run-invalid', `game ${id} week ${week}: deciding tiebreak inning did not break the tie`);
+            }
+          } else {
+            if (decidedBy !== 'coin') {
+              rec.error('commissioner-flip-missed', `game ${id} week ${week}: roster exhausted at rank ${expectedTb.rank}, stored ${decidedBy}`);
+            }
+            const off = 18 + expectedTb.innings.length * 2;
+            const coin = [Number(innings[off] || 0), Number(innings[off + 1] || 0)];
+            if (!sameArray(coin, [1, 0]) && !sameArray(coin, [0, 1])) {
+              rec.error('commissioner-flip-run-invalid', `game ${id} week ${week}: coin-flip inning must award exactly one run, saved ${coin.join('-')}`);
+            }
           }
         }
       } else if (innings.length !== 18) {
