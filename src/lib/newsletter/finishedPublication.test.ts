@@ -382,3 +382,33 @@ test('live weekly review selects updated favorites from the same production quer
   assert.deepEqual(weekly.rows.weekly_player_totals,[{yatid:'YAT000002'}]);
   assert.ok(!qa.queries.some(q=>/newsletter_recipients|newsletter_favorites|user_scoreboard_schools/.test(q)));
 });
+
+
+test('duplicate email resolves one edition with all account favorites and highest current entitlement', async () => {
+  const facts = fixture();
+  const fan = {...facts.recipient, firebase_uid:'fan-a', email:' FIXTURE@example.invalid ', home_hsid:7};
+  const superfan = {...facts.recipient, firebase_uid:'fan-b', plan:'superfan', is_superfan:true};
+  const accounts = [fan,superfan];
+  const base = database(facts);
+  const db = {query: async (sql:string, values:any[]=[]) => {
+    if(sql.includes(' FROM newsletter_recipients ')) { assert.deepEqual(values,['fixture@example.invalid']); return {rows:accounts}; }
+    if(sql.includes(' FROM newsletter_favorites ')) { assert.deepEqual([...values[0]].sort(),['fan-a','fan-b']);return {rows:[{yatid:'YAT000001'},{yatid:'YAT000002'},{yatid:'YAT000001'}]};}
+    if(sql.includes(' FROM user_scoreboard_schools ')) { assert.deepEqual(values,['fan-b']);return {rows:[]}; }
+    return base.query(sql,values);
+  }};
+  facts.rows.daily_stat_lines.push({stats_date:request.date,stat_line_id:'2',yatid:'YAT000002',line:'Second account favorite',sort_key:'b'});
+  for(const firebaseUid of [undefined,'fan-a','fan-b']) {
+    const edition = await readFinishedEdition(db,{...request,email:' FIXTURE@EXAMPLE.INVALID ',firebaseUid});
+    assert.equal(edition.recipient.firebase_uid,'fan-b');
+    assert.equal(edition.recipient.home_hsid,5004);
+    assert.equal(edition.recipient.plan,'superfan');
+    assert.equal(edition.recipient.is_superfan,true);
+    assert.deepEqual(edition.selection.favorites,['YAT000001','YAT000002']);
+    assert.equal(edition.rows.daily_stat_lines.length,2);
+    accounts.reverse();
+  }
+  await assert.rejects(readNewsletterPreferences(db,{...request,firebaseUid:'unrelated'}),/does not belong/);
+  const weekly=await readNewsletterPreferences(db,{...request,cadence:'weekly'});
+  assert.deepEqual(weekly.favorites,['YAT000001','YAT000002']);
+  assert.equal(weekly.recipient.is_superfan,true);
+});

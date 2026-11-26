@@ -37,7 +37,7 @@ export async function GET(request:NextRequest){
   // The editions' pictures (Pete, Nov 25 2026): each recipient school's Digest board, and
   // after a Sunday the Gazette's banner, team logos and boards, drawn and stored before
   // the emails go out. A picture that fails is logged; the editions still go out.
-  const {rows:fans}=await pool.query<{email:string;home_hsid:number|null}>("SELECT email,home_hsid FROM public.newsletter_recipients WHERE coalesce(email,'')<>'' ORDER BY email");
+  const {rows:fans}=await pool.query<{email:string;home_hsid:number|null}>("SELECT email,home_hsid FROM public.newsletter_recipients WHERE btrim(coalesce(email,''))<>'' ORDER BY email");
   const recipients=[...new Set(fans.map(f=>String(f.email).trim().toLowerCase()))];
   let pictures:PictureRun|{error:string};
   try {
