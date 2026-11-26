@@ -11,8 +11,7 @@ import { runBracketResultsJob } from '@/lib/bracket/resultsJob';
 import { fetchBracketLiveBatches } from '@/lib/bracket/fetchLiveBatches';
 import { addDays, validateRehearsalDay, type Snapshot } from './rehearsal-day';
 import { stableJson } from '@/lib/newsletter/finishedPublication';
-import { liveNewsletterPreferenceLoader } from '@/lib/newsletter/liveNewsletterPreferences';
-import { newsletterPeriods, publishNewsletterDay, readNewsletterReview } from '@/lib/newsletter/scheduledPublication';
+import { newsletterPeriods, publishNewsletterDay } from '@/lib/newsletter/scheduledPublication';
 import { runMlbLiveGameLogs } from '@/lib/mlb/liveGameLogs';
 import { runLiveScheduleRefresh } from '@/lib/mlb/liveScheduleRefresh';
 import { createHistoricalMlbSource, type HistoricalMlbRecord } from './lib/rehearsal-mlb-source';
@@ -55,9 +54,8 @@ async function main() {
   if (!config.DATABASE_URL || config.PLAYERS_DATABASE_URL !== config.DATABASE_URL) throw new Error('Both database variables must target the same isolated database');
   const endpoint = new URL(config.DATABASE_URL).hostname;
   if (endpoint !== expectedEndpoint) throw new Error('Connection endpoint differs from the verified isolated target');
-  const seasonKey = arg('season', '2027'), email = arg('email');
-  if (email.trim().toLowerCase() !== 'pcdaction@gmail.com') throw new Error('The owner rehearsal must use the designated SuperFan account');
-  const loadPreferences = liveNewsletterPreferenceLoader(process.env.REHEARSAL_LIVE_FAN_TOKEN);
+  const seasonKey = arg('season', '2027');
+  if (process.argv.includes('--email')) throw new Error('Single-account rehearsal removed; use the all-recipient review stage');
   const base = arg('base', 'http://127.0.0.1:3000').replace(/\/$/, '');
   const publicBase = new URL(arg('public-base'));
   if (!['https:', 'http:'].includes(publicBase.protocol) || publicBase.username || publicBase.password) throw new Error('Supply the review deployment URL without credentials using --public-base');
@@ -172,8 +170,6 @@ async function main() {
     if (resume !== 'ingest') writeFileSync(sourceFile, gzipSync(JSON.stringify(previous!.source_snapshot)));
     const publication = await runRehearsalStages(resume, {
       ingest: async () => {
-        const preferences = await loadPreferences({email,cadence:'daily'});
-        if (!preferences.recipient.is_superfan || preferences.recipient.email !== email.trim().toLowerCase()) throw new Error('Live owner SuperFan account could not be verified');
         for (const table of ['player_game_logs', 'stat_lines', 'team_schedules']) {
           const { rows: [later] } = await pool.query('SELECT count(*)::int AS n FROM public.' + table + ' WHERE game_date>$1::date', [day]);
           if (later.n) throw new Error('Future historical inputs remain in ' + table + '; prepare the isolated source tables first');
@@ -262,27 +258,9 @@ async function main() {
       await pool.query("UPDATE bracket_rehearsal_days SET phase='scored',evidence=$3::jsonb,stored_results=$4::jsonb,updated_at=now() WHERE season_key=$1 AND report_date=$2", [seasonKey, day, JSON.stringify(evidence), JSON.stringify(stored)]);
     }
     writeFileSync(folder + '/stored-results.json.gz', gzipSync(JSON.stringify(stored)));
-    const publications = [];
-    for (const period of periods) {
-      const rendered = await readNewsletterReview(pool, { cadence: period.cadence, date: period.date, email, seasonKey, reviewBaseUrl: publicBase.toString() },loadPreferences);
-      if (!rendered.facts.recipient.is_superfan) throw new Error('Owner review account must be the live SuperFan');
-      const hash = rendered.hashes.content;
-      // Preserve the first proof. Each fresh personalization is an immutable
-      // new proof, not a replacement of the original archive.
-      await pool.query(`CREATE TABLE IF NOT EXISTS public.bracket_rehearsal_personalized_proofs (
-        season_key text NOT NULL,cadence text NOT NULL,period_start date NOT NULL,recipient_email text NOT NULL,
-        content_hash text NOT NULL,subject text NOT NULL,html text NOT NULL,plain_text text NOT NULL,facts jsonb NOT NULL,
-        created_at timestamptz NOT NULL DEFAULT now(),
-        PRIMARY KEY(season_key,cadence,period_start,recipient_email,content_hash))`);
-      await pool.query(`INSERT INTO bracket_rehearsal_personalized_proofs(season_key,cadence,period_start,recipient_email,content_hash,subject,html,plain_text,facts)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) ON CONFLICT DO NOTHING`,
-        [seasonKey,period.cadence,period.date,email,hash,rendered.subject,rendered.html,rendered.text,JSON.stringify(rendered.facts)]);
-      writeFileSync(folder + '/' + period.cadence + '.html', rendered.html);
-      writeFileSync(folder + '/' + period.cadence + '.txt', rendered.text);
-      writeFileSync(folder + '/' + period.cadence + '-facts.json', JSON.stringify(rendered.facts, null, 2));
-      writeFileSync(folder + '/' + period.cadence + '-manifest.json', JSON.stringify({ hashes: rendered.hashes, rowKeys: rendered.rowKeys, layoutVersion: rendered.layoutVersion, notes: rendered.notes }, null, 2));
-      publications.push({ ...period, subject: rendered.subject, contentHash: hash, layoutVersion: rendered.layoutVersion, delivery: 'review-copy-only' });
-    }
+    // Scoring and publication are independent of any individual fan.
+    // The all-recipient proof stage runs after the independent audit.
+    const publications = periods.map(period=>({...period,delivery:'review-only; personalized separately'}));
     evidence.publications = publications;
     evidence.publisher = publication.publications;
     await pool.query("UPDATE bracket_rehearsal_days SET phase='awaiting_review',evidence=$3::jsonb,updated_at=now() WHERE season_key=$1 AND report_date=$2", [seasonKey, day, JSON.stringify(evidence)]);
