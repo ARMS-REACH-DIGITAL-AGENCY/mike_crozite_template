@@ -66,6 +66,27 @@ jobs:
           echo "THROUGH=$THROUGH" >> "$GITHUB_ENV"
           echo "Running the replay on the QA branch through $THROUGH"
 
+      - name: Verify live fan token before installing
+        env:
+          REHEARSAL_LIVE_FAN_TOKEN: ${{ secrets.REHEARSAL_LIVE_FAN_TOKEN }}
+        run: |
+          node <<'NODE'
+          (async () => {
+            const token = process.env.REHEARSAL_LIVE_FAN_TOKEN;
+            if (!token || token.length < 32) throw new Error('REHEARSAL_LIVE_FAN_TOKEN must contain at least 32 characters. Set the same securely generated value in GitHub Actions and Vercel production.');
+            const response = await fetch('https://hamilton.az.yatstats.com/api/admin/rehearsal-newsletter-preferences', {
+              method: 'POST', cache: 'no-store', redirect: 'error',
+              headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' },
+              body: JSON.stringify({ email: process.env.REVIEW_EMAIL, cadence: 'daily' }),
+              signal: AbortSignal.timeout(15000),
+            });
+            if (!response.ok) throw new Error('Live preferences preflight returned HTTP ' + response.status + '. Verify the matching Vercel production token and redeploy after changing it.');
+            const result = await response.json();
+            if (result.source !== 'production-newsletter-preferences' || !result.preferences?.recipient?.is_superfan || String(result.preferences.recipient.email).toLowerCase() !== process.env.REVIEW_EMAIL || !Array.isArray(result.preferences.favorites)) throw new Error('Live SuperFan source could not be verified. No QA fallback.');
+            console.log('Live production SuperFan preferences authenticated. No preferences were logged.');
+          })().catch(error => { console.error('::error::' + error.message); process.exitCode = 1; });
+          NODE
+
       - name: Install (same as CI)
         run: |
           npm install
