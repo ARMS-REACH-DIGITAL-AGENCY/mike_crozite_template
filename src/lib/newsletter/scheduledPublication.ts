@@ -116,15 +116,16 @@ export async function deliverNewsletterEdition(pool: Pool, edition: RenderedEdit
   // Weekly Gazette (Pete, Nov 25 2026): no preference row means both, as HTML. A row
   // keeps its format; a row marked unsubscribed stops both (an unsubscribe is honored).
   const { rows: recipients } = await pool.query<{ firebase_uid: string }>(
-    'SELECT firebase_uid FROM public.newsletter_recipients WHERE lower(email)=$1', [email],
+    'SELECT firebase_uid FROM public.newsletter_recipients WHERE lower(btrim(email))=$1', [email],
   );
-  if (recipients.length !== 1) return { email, cadence, status: 'not_a_registered_fan' };
+  if (!recipients.length) return { email, cadence, status: 'not_a_registered_fan' };
   const { rows: preferences } = await pool.query<{ cadence: string; format: string; subscribed: boolean }>(
-    'SELECT cadence,format,subscribed FROM public.alumni_newsletter_preferences WHERE firebase_uid=$1', [recipients[0].firebase_uid],
+    'SELECT cadence,format,subscribed FROM public.alumni_newsletter_preferences WHERE firebase_uid=ANY($1::text[]) ORDER BY firebase_uid', [recipients.map(row => row.firebase_uid)],
   );
-  if (preferences.length > 1) return { email, cadence, status: 'ambiguous_preferences' };
-  const pref = preferences[0] || { cadence, format: 'html', subscribed: true };
-  if (!pref.subscribed) return { email, cadence, status: 'not_subscribed' };
+  // An opt-out on any linked account applies to the mailbox. Never bypass it
+  // by selecting a second account. Prefer text if any account requests text.
+  if (preferences.some(row => !row.subscribed)) return { email, cadence, status: 'not_subscribed' };
+  const pref = { format: preferences.some(row => row.format === 'text') ? 'text' : preferences[0]?.format || 'html' };
   if (!['html', 'text'].includes(pref.format)) return { email, cadence, status: 'unsupported_format' };
   const { rows: controls } = await pool.query<{ enabled: boolean; approved_layout_version: string | null }>(
     'SELECT enabled,approved_layout_version FROM public.alumni_newsletter_control',

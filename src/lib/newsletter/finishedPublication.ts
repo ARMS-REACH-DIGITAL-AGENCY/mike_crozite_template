@@ -95,11 +95,21 @@ export async function readNewsletterPreferences(db: ReadDatabase, request: Newsl
   const email = request.email.trim().toLowerCase();
   if (!email || !['daily','weekly'].includes(request.cadence)) throw new Error('Valid newsletter recipient and cadence required');
   const recipients = (await db.query(
-    'SELECT firebase_uid, email, first_name, home_hsid, home_school_name, plan, is_superfan FROM newsletter_recipients WHERE lower(email)=$1' +
-    (request.firebaseUid ? ' AND firebase_uid=$2' : ''), request.firebaseUid ? [email, request.firebaseUid] : [email])).rows;
-  if (recipients.length !== 1 || !Number.isInteger(Number(recipients[0].home_hsid))) throw new Error('Recipient must resolve to one existing home school');
-  const recipient = recipients[0];
-  const favoriteRows = (await db.query("SELECT to_jsonb(f)->>'yatid' AS yatid FROM newsletter_favorites f WHERE firebase_uid=$1", [recipient.firebase_uid])).rows;
+    'SELECT firebase_uid, email, first_name, home_hsid, home_school_name, plan, is_superfan FROM newsletter_recipients WHERE lower(btrim(email))=$1', [email])).rows;
+  if (!recipients.length) throw new Error('Recipient must resolve to an existing fan');
+  const accounts = [...new Map(recipients.map(row => [String(row.firebase_uid), row])).values()];
+  if (request.firebaseUid && !accounts.some(row => row.firebase_uid === request.firebaseUid)) throw new Error('Requested account does not belong to recipient email');
+  const validSchool = (row: Row) => Number.isInteger(Number(row.home_hsid)) && Number(row.home_hsid) > 0;
+  // Prefer an entitled SuperFan with a valid home school; break ties by UID
+  // so retries and both cadences always select the same home-school edition.
+  const ordered = accounts.slice().sort((x,y) => Number(validSchool(y))-Number(validSchool(x)) ||
+    Number(Boolean(y.is_superfan))-Number(Boolean(x.is_superfan)) || String(x.firebase_uid).localeCompare(String(y.firebase_uid)));
+  const primary = ordered[0];
+  if (!validSchool(primary)) throw new Error('Recipient has no valid home school');
+  const superfan = accounts.some(row => row.is_superfan === true);
+  const recipient: Row = {...primary, email, is_superfan: superfan, plan: superfan ? 'superfan' : 'fan',
+    ...(accounts.length > 1 ? { account_uids: accounts.map(row => String(row.firebase_uid)).sort() } : {})};
+  const favoriteRows = (await db.query("SELECT to_jsonb(f)->>'yatid' AS yatid FROM newsletter_favorites f WHERE firebase_uid=ANY($1::text[])", [accounts.map(row => String(row.firebase_uid))])).rows;
   const favorites = [...new Set(favoriteRows.map(row => yat(row.yatid)))].sort();
   const picks = request.cadence === 'daily'
     ? (await db.query('SELECT position, hsid, label FROM user_scoreboard_schools WHERE firebase_uid=$1 ORDER BY position', [recipient.firebase_uid])).rows : [];
@@ -109,7 +119,7 @@ export async function readNewsletterPreferences(db: ReadDatabase, request: Newsl
 /** Validate an externally obtained preference snapshot before selecting finished rows. */
 function checkedPreferences(value: NewsletterPreferences, request: NewsletterPreferenceRequest): NewsletterPreferences {
   if (!value?.recipient || String(value.recipient.email).trim().toLowerCase() !== request.email.trim().toLowerCase()
-    || !value.recipient.firebase_uid || (request.firebaseUid && value.recipient.firebase_uid !== request.firebaseUid)
+    || !value.recipient.firebase_uid || (request.firebaseUid && value.recipient.firebase_uid !== request.firebaseUid && !(Array.isArray(value.recipient.account_uids) && value.recipient.account_uids.includes(request.firebaseUid)))
     || !Number.isInteger(Number(value.recipient.home_hsid)) || !Array.isArray(value.favorites) || !Array.isArray(value.picks))
     throw new Error('Live newsletter preference snapshot does not match the requested account');
   return { recipient: value.recipient, favorites: [...new Set(value.favorites.map(yat))].sort(), picks: value.picks };

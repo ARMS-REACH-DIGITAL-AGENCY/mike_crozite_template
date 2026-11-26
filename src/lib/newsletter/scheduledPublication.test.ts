@@ -121,12 +121,12 @@ function edition(): RenderedEdition {
 
 function deliveryDatabase() {
   const state = { pref: { subscribed: true, cadence: 'daily', format: 'html' } as { subscribed: boolean; cadence: string; format: string } | null,
-    registered: true,
+    registered: true, recipientUids: ['fan'], additionalPrefs: [] as Array<{subscribed:boolean;cadence:string;format:string}>,
     control: { enabled: true, approved_layout_version: 'daily-digest-phone8-v2' }, claims: new Map<string, string>(), calls: [] as string[] };
   const query = async (sql: string, values: any[] = []) => {
     state.calls.push(sql);
-    if (sql.includes('FROM public.newsletter_recipients')) return { rows: state.registered ? [{ firebase_uid: 'fan' }] : [] };
-    if (sql.includes('FROM public.alumni_newsletter_preferences')) return { rows: state.pref ? [state.pref] : [] };
+    if (sql.includes('FROM public.newsletter_recipients')) return { rows: state.registered ? state.recipientUids.map(firebase_uid=>({firebase_uid})) : [] };
+    if (sql.includes('FROM public.alumni_newsletter_preferences')) { assert.deepEqual(values[0],state.recipientUids); return { rows: [...(state.pref ? [state.pref] : []),...state.additionalPrefs] }; }
     if (sql.includes('FROM public.alumni_newsletter_control')) return { rows: [state.control] };
     const cadence = sql.includes('alumni_weekly_email_delivery') ? 'weekly' : 'daily';
     const key = cadence + '/' + values.slice(0, 2).join('/');
@@ -232,4 +232,17 @@ test('every registered fan gets both the Digest and the Gazette unless unsubscri
   const db = deliveryDatabase();
   db.state.pref = null;
   assert.equal((await deliverNewsletterEdition(db.pool, weekly(), delivery)).status, 'blocked_newsletter_control');
+});
+
+
+test('duplicate account mailbox receives one edition even under concurrent case-variant attempts; any opt-out wins',async()=>{
+  const db=deliveryDatabase();db.state.recipientUids=['fan','superfan'];db.state.additionalPrefs=[{subscribed:true,cadence:'weekly',format:'text'}];
+  let sends=0;
+  const transport={domainVerified:true,lookupContact:async(email:string)=>{assert.equal(email,'fan@example.invalid');return 'contact';},send:async(_c:string,_e:RenderedEdition,format:'html'|'text')=>{assert.equal(format,'text');sends++;return true;}};
+  const other=edition();other.facts.recipient.email=' FAN@EXAMPLE.INVALID ';
+  const results=await Promise.all([deliverNewsletterEdition(db.pool,edition(),transport),deliverNewsletterEdition(db.pool,other,transport)]);
+  assert.equal(sends,1);assert.equal(results.filter(r=>r.status==='queued').length,1);
+  const opted=deliveryDatabase();opted.state.recipientUids=['fan','superfan'];opted.state.additionalPrefs=[{subscribed:false,cadence:'weekly',format:'html'}];
+  assert.equal((await deliverNewsletterEdition(opted.pool,edition(),transport)).status,'not_subscribed');
+  assert.equal(opted.state.claims.size,0);
 });
