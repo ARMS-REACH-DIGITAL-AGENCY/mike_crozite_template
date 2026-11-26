@@ -10,7 +10,7 @@
 //   StoryViewer - the big view (photo + thread), opened from a card on a
 //                 phone or from a photo on desktop.
 
-import { type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { auth } from '@/lib/firebase';
 import { toPlayerSlug } from '@/lib/slug';
@@ -51,6 +51,26 @@ export type Story = {
 
 type StoryComment = { id: string; text: string; author: string; createdAt: string; isMine: boolean; canDelete: boolean; photos?: StoryPhoto[] };
 type PickedPhoto = { id: string; file: File; preview: string };
+// Shared profile-story composer: respect CSS limits on desktop/mobile and
+// grow both retired memories and regular stories as the fan types.
+export function useCommentComposerHeight(ref: RefObject<HTMLTextAreaElement | null>, draft: string, visible: boolean) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!visible || !el) return;
+    const resize = () => {
+      el.style.height = 'auto';
+      const style = window.getComputedStyle(el);
+      const min = parseFloat(style.minHeight) || 52;
+      const max = parseFloat(style.maxHeight) || 154;
+      const border = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+      el.style.height = Math.max(min, Math.min(el.scrollHeight + border, max)) + 'px';
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, [ref, draft, visible]);
+}
+
 const COMMENT_MAX_PHOTOS = 4;
 const STORY_MAX_TAGS = 20;
 export type Me = { firstName: string; lastName: string; email: string } | null;
@@ -283,14 +303,7 @@ export function StoryThread({
   // once they've confirmed it's them (FanConfirm).
   const [retry, setRetry] = useState<null | (() => void)>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  // Keep the composer readable while growing with wrapped and explicit lines.
-  // Beyond six lines the textarea scrolls without displacing the story viewer.
-  useEffect(() => {
-    const el = composerRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 154)}px`;
-  }, [draft]);
+  useCommentComposerHeight(composerRef, draft, Boolean(me));
   // Photos picked for the next comment, and a comment photo opened large.
   const [picked, setPicked] = useState<PickedPhoto[]>([]);
   const [lightbox, setLightbox] = useState<{ photos: StoryPhoto[]; index: number } | null>(null);
@@ -303,7 +316,7 @@ export function StoryThread({
   const hasComments = story.commentCount > 0;
 
   useEffect(() => {
-    if (focusComment && me) composerRef.current?.focus();
+    if (focusComment && me) composerRef.current?.focus({ preventScroll: true });
   }, [focusComment, me]);
 
   // Comments: loaded when the post appears (skipped when there are none).
@@ -570,7 +583,7 @@ export function StoryThread({
         <button type="button" className={story.likedByMe ? 'ysv-liked' : ''} onClick={toggleLike} aria-pressed={Boolean(story.likedByMe)}>
           <i className={story.likedByMe ? 'ri-thumb-up-fill' : 'ri-thumb-up-line'} /> Like
         </button>
-        <button type="button" onClick={() => { onCommentOpen?.(); if (me) composerRef.current?.focus(); else requestSignIn(); }}>
+        <button type="button" onClick={() => { onCommentOpen?.(); if (me) composerRef.current?.focus({ preventScroll: true }); else requestSignIn(); }}>
           <i className="ri-chat-3-line" /> Comment
         </button>
         <button type="button" onClick={share}>
@@ -857,7 +870,7 @@ export default function StoryViewer({
 
   return createPortal(
     <div className="ysv" role="dialog" aria-modal="true" aria-label="Story" onClick={onClose}>
-      <div className={`ysv-card${commentMode ? " ysv-comment-mode" : ""}`} onClick={(e) => e.stopPropagation()}>
+      <div className="ysv-card" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="ysv-close" onClick={onClose} aria-label="Close"><i className="ri-close-line" /></button>
         <div className={`ysv-photo${photo?.logo ? ' ysv-photo-logo' : ''}`}>
           {photo?.full ? (
@@ -1036,9 +1049,10 @@ export function StoryStyles() {
         .ysv { padding: 0; align-items: stretch; }
         .ysv-card { grid-template-columns: 1fr; grid-template-rows: minmax(0, 42dvh) minmax(0, 1fr); width: 100%; height: 100dvh; border-radius: 0; border: 0; }
         .ysv-side { border-left: 0; border-top: 1px solid var(--ysv-line); }
-        .ysv-card.ysv-comment-mode {grid-template-rows:minmax(0,1fr);}
-        .ysv-comment-mode > .ysv-photo {display:none;}
-        .ysv-card .ysv-composer {padding-bottom:max(12px,env(safe-area-inset-bottom));}
+        /* Photo and Comment open the identical two-pane viewer. Only focus changes.
+           Keep the original photo visible above the independently scrolling discussion. */
+        .ysv-card .ysv-composer {flex-shrink:0;padding-bottom:max(12px,env(safe-area-inset-bottom));}
+        .ysv-card .ysv-composer textarea {min-height:min(112px,28dvh);max-height:min(220px,40dvh);font-size:16px;}
       }
     `}</style>
   );
