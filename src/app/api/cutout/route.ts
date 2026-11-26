@@ -14,8 +14,8 @@ import sharp from 'sharp';
 export const runtime = 'nodejs';
 
 const S3_BASE = 'https://yatstats-assets.s3.us-west-2.amazonaws.com';
-const KINDS = new Set(['then', 'back', 'now']);
-const PLAYER_ID = /^[A-Za-z0-9_-]{1,40}$/;
+const KINDS = new Set(['then', 'back', 'now', 'season']);
+const PLAYER_ID = /^[A-Za-z0-9_-]{1,90}$/;
 
 // Largest size any hero box draws a cutout at, in device pixels (a
 // ~450px-tall row on a 2x screen). The S3 originals run up to 2000x2800
@@ -37,6 +37,18 @@ async function buildCutout(kind: string, id: string): Promise<string | null> {
     .raw()
     .toBuffer({ resolveWithObject: true });
   const { width, height } = info;
+  if (kind === 'season') {
+    // Measure actual alpha, not color or the dimensions of the source canvas.
+    let left=width, top=height, right=-1, bottom=-1, transparent=false;
+    for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+      const alpha=data[(y*width+x)*info.channels+3];
+      if(alpha<16)transparent=true;
+      if(alpha>=16){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}
+    }
+    if(!transparent||right<left||bottom<top)return null;
+    const result=await sharp(data,{raw:info}).extract({left,top,width:right-left+1,height:bottom-top+1}).resize({width:MAX_W,height:MAX_H,fit:'inside',withoutEnlargement:true}).webp({quality:82,alphaQuality:90}).toBuffer();
+    return result.toString('base64');
+  }
   let image = sharp(data, { raw: info });
   // Flip-card-back action photos are wide rectangles (~2.3-3.2:1) laid
   // out for the card back, where the name/stats sit over the LEFT third
