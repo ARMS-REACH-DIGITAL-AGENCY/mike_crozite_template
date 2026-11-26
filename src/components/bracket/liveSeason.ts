@@ -329,20 +329,28 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
           const reached = from + d <= today && !offTeam(p, from + d);
           const x = reached ? byDay?.get(from + d) : undefined;
           if (x?.club) club = x.club;
+          const closed = saved != null && d < saved.closed;
+          if (closed && !prior?.days?.[d]) {
+            throw new Error('Locked club game identity cannot be reconciled: game ' + g[0] + ', player ' + p[0] + ', day ' + d);
+          }
+          const old = closed ? frozenPlayers[d]?.get(p[0]) : undefined;
+          // A locked day stays exactly as published (Pete, Nov 26 2026). A player
+          // who was not on that day's record (joined the school's roster later,
+          // e.g. promoted or assigned mid-week, like Jeremiah Boyd on April 16)
+          // gets nothing for it and counts from the days he appears.
+          if (closed && !old) { gameFacts.push([]); continue; }
           if (x && (x.b || x.p)) {
             days[d].set(p[0], x.lv);
             weekLv.push(x.lv);
             if (x.b) wb = add(wb, x.b);
             if (x.p) wp = add(wp, x.p);
           }
-          const closed = saved != null && d < saved.closed;
-          const old = closed ? frozenPlayers[d]?.get(p[0]) : undefined;
           const oldGames = closed ? prior?.clubGames?.[p[0]]?.[d] : undefined;
           // The server writer must resolve any legacy locked day from its
           // verified cutoff capture first. Matching the current W-L alone
           // cannot prove which game was credited (a replacement may have the
           // same outcome). No fallback to today's schedule on a closed day.
-          if (closed && (!old || !Array.isArray(oldGames))) {
+          if (closed && !Array.isArray(oldGames)) {
             throw new Error('Locked club game identity cannot be reconciled: game ' + g[0] + ', player ' + p[0] + ', day ' + d);
           }
           const candidates = oldGames ?? (reached ? clubGamesOn(club, from + d) : []);
