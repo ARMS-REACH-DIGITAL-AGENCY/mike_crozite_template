@@ -271,7 +271,7 @@ function scoreInning(inning: number, kind: 'day' | 'week', home: PlayerLines, aw
   return { inning, kind, home: h, away: a, homeOffense: ho, awayOffense: ao, homePitching: hp, awayPitching: ap };
 }
 
-export const winPct = (w: number, l: number) => (w + l ? w / (w + l) : null);
+export const winPct = (w: number, l: number) => (w + l ? w / (w + l) : 0);
 
 // A school's alumni ranked on the week: hitters by OPS+ (best first),
 // pitchers by FIP- (best = lowest first). Each player's week is measured
@@ -398,8 +398,9 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   innings.push(scoreInning(8, 'week', homeWeek, awayWeek, baselines, rules));
   const hw = winPct(home.wins, home.losses);
   const aw = winPct(away.wins, away.losses);
-  // A school whose alumni's clubs didn't play counts as .500.
-  const [x, y] = hw === null && aw === null ? [0, 0] : compareHigher(hw ?? 0.5, aw ?? 0.5);
+  // A 0–0 club record is .000, not .500 (Pete, Nov 26, 2026).
+  // Equal percentages, including two .000 records, award no run.
+  const [x, y] = compareHigher(hw, aw);
   innings.push({ inning: 9, kind: 'wl', home: x, away: y, homeWinPct: hw, awayWinPct: aw });
 
   let hr = innings.reduce((sum, i) => sum + i.home, 0);
