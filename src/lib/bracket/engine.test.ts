@@ -128,6 +128,25 @@ test('nine innings: 7 days, the week, then W-L%', () => {
   assert.equal(g.innings[8].kind, 'wl');
 });
 
+test('inning 9: a 0-0 record is .000, never a fictitious .500', () => {
+  const idle = idleWeek();
+  const cases = [
+    { home: [2, 3], away: [0, 0], expected: [1, 0], pct: [.4, 0] },
+    { home: [0, 0], away: [1, 5], expected: [0, 1], pct: [0, 1 / 6] },
+    { home: [0, 5], away: [0, 0], expected: [0, 0], pct: [0, 0] },
+    { home: [0, 0], away: [0, 0], expected: [0, 0], pct: [0, 0] },
+    { home: [0, 0], away: [1, 1], expected: [0, 1], pct: [0, .5] },
+    { home: [1, 2], away: [0, 4], expected: [1, 0], pct: [1 / 3, 0] },
+  ];
+  for (const c of cases) {
+    const g = playGame(week(idle, c.home[0], c.home[1]), week(idle, c.away[0], c.away[1]), baselines, HOLD, false, () => 'home');
+    const ninth = g.innings[8];
+    assert.deepEqual([ninth.home, ninth.away], c.expected);
+    assert.deepEqual([ninth.homeWinPct, ninth.awayWinPct], c.pct);
+    assert.ok(ninth.home + ninth.away <= 1);
+  }
+});
+
 test('two-way players contribute batting and pitching, but their team W-L counts once', () => {
   const twoWay = day('MLB', { pa: 5, ab: 4, h: 3, hr: 1, bb: 1 }, { outs: 18, so: 8 });
   const idle = Array(7).fill(null).map(() => off());
