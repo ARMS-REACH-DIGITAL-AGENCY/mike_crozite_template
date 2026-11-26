@@ -215,9 +215,13 @@ test('the Gazette follows the approved TEST 3 proof (Pete, Nov 24 2026; docs/new
   assert.ok(result.text.includes('Bellinger | 183 | 11 | 4 | 0 | 1 | 0 | 2 | 0 | 0 | .462 | .545 | 1.007 | 3-0'));
   assert.match(result.html, /W-L\* — Win–loss record of the team\(s\) each alumnus was rostered with during the selected week, not individual pitching decisions\./);
   assert.ok(result.text.includes('W-L* — Win–loss record of the team(s) each alumnus was rostered with during the selected week, not individual pitching decisions.'));
-  // Batters and Pitchers share one grid: the same column widths, in the same order.
-  const widths = [...result.html.matchAll(/<td width="(\d+)"/g)].map((m) => m[1]).join(',');
-  assert.ok(widths.startsWith('25,17,17,17,17,17,17,17,17,28,28,28,25,25,17,17,17,17,17,17,17,17,28,28,28,25'), widths);
+  // Email clients must allocate space from content, not fixed website widths.
+  const grids = [...result.html.matchAll(/<table class="dr"[^>]*>[\s\S]*?<\/table>/g)].map(m => m[0]);
+  assert.ok(grids.length >= 2);
+  for (const grid of grids) {
+    assert.match(grid, /table-layout:auto/);
+    assert.doesNotMatch(grid, /table-layout:fixed|overflow:hidden|<td width="\d+"/);
+  }
   // Favorites: only those outside the home school (Bellinger is already in bold above).
   const favTable = result.html.slice(result.html.indexOf('SuperFan Weekly Stats'), result.html.indexOf('S WEEK'));
   assert.doesNotMatch(favTable, /Bellinger/);
