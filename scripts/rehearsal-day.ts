@@ -9,11 +9,11 @@ export function publicationRequests(day: string): ({ cadence: 'daily'; date: str
 }
 export type Checkpoint = { report_date: string; phase: string };
 export function validateRehearsalDay(day: string, previous?: Checkpoint, reviewedDay = '') {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(Date.parse(day + 'T00:00:00Z')) || addDays(day, 0) !== day || day < '2026-03-25' || day > '2026-11-15') {
-    throw new Error('Supply one explicit --day YYYY-MM-DD within March 25–November 15, 2026');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(Date.parse(day + 'T00:00:00Z')) || addDays(day, 0) !== day || day < '2026-03-23' || day > '2026-11-15') {
+    throw new Error('Supply one explicit --day YYYY-MM-DD within March 23–November 15, 2026');
   }
   if (!previous) {
-    if (day !== '2026-03-25') throw new Error('The first reviewable historical day is March 25, 2026');
+    if (day !== '2026-03-23') throw new Error('The first reviewable historical day is March 23, 2026');
     return;
   }
   if (day === previous.report_date) return; // resume this day's failed or interrupted work
