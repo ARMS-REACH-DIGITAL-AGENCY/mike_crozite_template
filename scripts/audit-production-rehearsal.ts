@@ -98,9 +98,17 @@ function inspectBox(g: Stored, box: GameBox) {
   }
   if (g.status === 'final') {
     check('final-ledger-posted', b.f.slice(0, 9).every((f: unknown) => Array.isArray(f) && f[0] === true && f[1] === true), id);
-    const ratio = (wl: number[]) => wl[0] + wl[1] ? wl[0] / (wl[0] + wl[1]) : 0.5;
+    const ratio = (wl: number[]) => wl[0] + wl[1] ? wl[0] / (wl[0] + wl[1]) : 0;
     const h = ratio(b.h.wl), a = ratio(b.a.wl);
     eq('wl-ledger-matches-inning-nine', (g.innings || []).slice(16, 18), [h > a ? 1 : 0, a > h ? 1 : 0], id);
+    const inn = g.innings || [];
+    const tied = sum(inn.slice(0, 18), 0) === sum(inn.slice(0, 18), 1);
+    eq('official-inning-count', inn.length, tied ? 20 : 18, id);
+    if (tied) {
+      const extra = inn.slice(18);
+      check('exactly-one-tiebreak-run', extra.length === 2 && ((extra[0] === 1 && extra[1] === 0) || (extra[0] === 0 && extra[1] === 1)), id);
+      eq('tiebreak-winner', g.winner_hsid, extra[0] === 1 ? g.home_hsid : g.away_hsid, id);
+    }
   }
 }
 
