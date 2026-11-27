@@ -19,8 +19,8 @@
 // "League averages by level", lib/bracket/levelAverages.ts) - OPS+ and FIP-,
 // 100 = his level's average.
 import {
-  addToBuckets, emptyBat, emptyPit, fipCore, mergeBuckets, offenseScore, pitchingScore, playGame,
-  type Baselines, type BatTotals, type GameResult, type LevelBuckets, type PitTotals, type PlayerLines, type SideWeek,
+  addToBuckets, emptyBat, emptyPit, fipCore, mergeBuckets, offenseScore, pitchingScore, playGame, buildWeeklyPerformancePool,
+  type Baselines, type BatTotals, type GameResult, type WeeklyPerformancePool, type LevelBuckets, type PitTotals, type PlayerLines, type SideWeek,
 } from '@/lib/bracket/engine';
 import { LEVEL_AVERAGES } from '@/lib/bracket/levelAverages';
 import { battedIn, pitchedIn } from '@/lib/bracket/appearance';
@@ -272,48 +272,11 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
     })),
     rosters: [(roster.get(String(g[2])) || []).map((p) => p[2]), (roster.get(String(g[3])) || []).map((p) => p[2])],
   }).winner;
-  const scoreGame = (g: GameRow, s?: SeriesRow, n = 0) => {
-    const week = g[1];
-    const [ws] = idx.weeks[week - 1] || [];
-    if (!ws || ws > asof || !g[2] || !g[3]) return;
-    const from = dayOf(ws, start);
-    // The current inning (0-6 = Monday-Sunday; 7 = the week is over) and
-    // where it stands: 'top' from 4 a.m., 'bottom' once the last real game
-    // of the day for these two schools' alumni has started (the whole
-    // bracket's last game if neither school has anyone playing), 'posted'
-    // once all of those games are over - its real runs go up in yellow,
-    // and turn white at 4 a.m.
-    const cur = Math.max(0, Math.min(7, today - from));
-    const phaseOf = (abs: number): LivePhase => {
-      const real = new Map<string, Real>();
-      const going = openLines.get(abs);
-      let open = false;
-      for (const h of [g[2], g[3]]) {
-        const mine = lines.get(String(h));
-        for (const p of roster.get(String(h)) || []) {
-          const x = mine?.get(p[0])?.get(abs);
-          for (const [id, st] of clubDay.get(`${clubForDay(p, abs, x?.club, p[4])}:${abs}`) || []) real.set(id, st);
-          if (going?.has(p[0])) open = true;
-        }
-      }
-      const list = [...(real.size ? real : allDay.get(abs) || new Map<string, Real>()).values()];
-      // No scheduled game anywhere in the bracket that day (an off day, or
-      // only leagues the schedule doesn't list): nothing to wait for - the
-      // inning posts, unless a line from a game still going says otherwise.
-      if (!list.length) return open ? 'bottom' : 'posted';
-      if (!list.every((x) => x.started)) return 'top';
-      return list.every((x) => x.done) && !open ? 'posted' : 'bottom';
-    };
-    const phase: LivePhase = cur < 7 ? phaseOf(from + cur) : 'posted';
-    setLiveInning(g[0], cur, phase);
-    // A day's runs count once posted: every day before today, and today's
-    // once its games are over. Innings 8 and 9 post at 4 a.m. Monday, when
-    // nothing more can come in for the week - that ends the game (Pete,
-    // Nov 2). Sunday's games all over is the Top of the 8th, not the end.
-    const posted = (k: number) => k < cur || (k === cur && phase === 'posted');
-    const f = Array.from({ length: 7 }, (_, d) => [posted(d), posted(d)] as [boolean, boolean]);
-    const final = cur >= 7;
-    const weekDone: [boolean, boolean] = [final, final];
+  // Prepare the exact same side inputs for the whole field before deciding
+  // any tied final. In particular, a school cannot get a different
+  // percentile because of its opponent, region or the order of scoring.
+  const prepareSides = (g: GameRow) => {
+    const from = dayOf(idx.weeks[g[1] - 1][0], start);
     const saved = frozen.get(g[0]);
     const side = (h: number, prior?: SideBox) => {
       const players = roster.get(String(h)) || [];
@@ -397,8 +360,53 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
       return { week: { days, wins, losses, runDiff } as SideWeek, weekRows, dayRows, clubGames };
     };
     const home = side(g[2], saved?.box.h), away = side(g[3], saved?.box.a);
+    return { home, away };
+  };
+  const scoreGame = (g: GameRow, s: SeriesRow, n: number, prepared: ReturnType<typeof prepareSides>, pool?: WeeklyPerformancePool) => {
+    const week = g[1];
+    const [ws] = idx.weeks[week - 1] || [];
+    if (!ws || ws > asof || !g[2] || !g[3]) return;
+    const from = dayOf(ws, start);
+    // The current inning (0-6 = Monday-Sunday; 7 = the week is over) and
+    // where it stands: 'top' from 4 a.m., 'bottom' once the last real game
+    // of the day for these two schools' alumni has started (the whole
+    // bracket's last game if neither school has anyone playing), 'posted'
+    // once all of those games are over - its real runs go up in yellow,
+    // and turn white at 4 a.m.
+    const cur = Math.max(0, Math.min(7, today - from));
+    const phaseOf = (abs: number): LivePhase => {
+      const real = new Map<string, Real>();
+      const going = openLines.get(abs);
+      let open = false;
+      for (const h of [g[2], g[3]]) {
+        const mine = lines.get(String(h));
+        for (const p of roster.get(String(h)) || []) {
+          const x = mine?.get(p[0])?.get(abs);
+          for (const [id, st] of clubDay.get(`${clubForDay(p, abs, x?.club, p[4])}:${abs}`) || []) real.set(id, st);
+          if (going?.has(p[0])) open = true;
+        }
+      }
+      const list = [...(real.size ? real : allDay.get(abs) || new Map<string, Real>()).values()];
+      // No scheduled game anywhere in the bracket that day (an off day, or
+      // only leagues the schedule doesn't list): nothing to wait for - the
+      // inning posts, unless a line from a game still going says otherwise.
+      if (!list.length) return open ? 'bottom' : 'posted';
+      if (!list.every((x) => x.started)) return 'top';
+      return list.every((x) => x.done) && !open ? 'posted' : 'bottom';
+    };
+    const phase: LivePhase = cur < 7 ? phaseOf(from + cur) : 'posted';
+    setLiveInning(g[0], cur, phase);
+    // A day's runs count once posted: every day before today, and today's
+    // once its games are over. Innings 8 and 9 post at 4 a.m. Monday, when
+    // nothing more can come in for the week - that ends the game (Pete,
+    // Nov 2). Sunday's games all over is the Top of the 8th, not the end.
+    const posted = (k: number) => k < cur || (k === cur && phase === 'posted');
+    const f = Array.from({ length: 7 }, (_, d) => [posted(d), posted(d)] as [boolean, boolean]);
+    const final = cur >= 7;
+    const weekDone: [boolean, boolean] = [final, final];
+    const { home, away } = prepared;
     const result: GameResult = playGame(home.week, away.week, BASELINES, RULES, !final, final ? ruling(g, s, n) : undefined,
-      [live.fans?.[String(g[2])]?.[week - 1] ?? 0, live.fans?.[String(g[3])]?.[week - 1] ?? 0]);
+      [live.fans?.[String(g[2])]?.[week - 1] ?? 0, live.fans?.[String(g[3])]?.[week - 1] ?? 0], pool);
     // A week in progress counts only the posted runs; the week (8) and W-L
     // (9) innings post with Sunday's, and any tiebreak once it's final.
     g[5] = final
@@ -430,9 +438,49 @@ export function scoreLive(idx: Index, live: Live, asof: string, frozen: FrozenCl
     };
   };
 
+  const gamesByWeek = new Map<number, { g: GameRow; s: SeriesRow; n: number }[]>();
+  for (const round of idx.rounds) for (const s of round.series as SeriesRow[]) s[7].forEach((g, n) => {
+    const ws = idx.weeks[g[1] - 1]?.[0];
+    if (!ws || ws > asof || !g[2] || !g[3]) return;
+    const group = gamesByWeek.get(g[1]) || [];
+    group.push({ g, s, n });
+    gamesByWeek.set(g[1], group);
+  });
+  // Process in chronological order so commissioner decisions can still
+  // consult the earlier games of the same series. Retain only one week's
+  // prepared inputs at a time.
+  for (const [week, games] of [...gamesByWeek].sort((a, b) => a[0] - b[0])) {
+    const prepared = games.map(({ g }) => prepareSides(g));
+    let pool: WeeklyPerformancePool | undefined;
+    const from = dayOf(idx.weeks[week - 1][0], start);
+    if (today - from >= 7) {
+      const bySchool = new Map<number, SideWeek>();
+      games.forEach(({ g }, i) => {
+        bySchool.set(g[2], prepared[i].home.week);
+        bySchool.set(g[3], prepared[i].away.week);
+      });
+      // Keep the full tournament field in the cohort even during a
+      // postseason week when not all schools have a scheduled game.
+      for (const key of Object.keys(idx.schools)) {
+        const hsid = Number(key);
+        if (bySchool.has(hsid)) continue;
+        const days: PlayerLines[] = Array.from({ length: 7 }, () => new Map());
+        const mine = lines.get(key);
+        for (const p of roster.get(key) || []) {
+          if (offTeam(p, from) && !(p[6] != null && p[6] < from + 7)) continue;
+          for (let d = 0; d < 7; d++) {
+            const x = offTeam(p, from + d) ? undefined : mine?.get(p[0])?.get(from + d);
+            if (x && (x.b || x.p)) days[d].set(p[0], x.lv);
+          }
+        }
+        bySchool.set(hsid, { days, wins: 0, losses: 0 });
+      }
+      pool = buildWeeklyPerformancePool(bySchool.values(), BASELINES, RULES.mode);
+    }
+    games.forEach(({ g, s, n }, i) => scoreGame(g, s, n, prepared[i], pool));
+  }
   for (const round of idx.rounds) {
     for (const s of round.series as SeriesRow[]) {
-      s[7].forEach((g, n) => scoreGame(g, s, n));
       // A series is decided once a school has 2 wins.
       const wins: [number, number] = [s[7].filter((g) => g[6] === s[1]).length, s[7].filter((g) => g[6] === s[2]).length];
       s[6] = wins;
