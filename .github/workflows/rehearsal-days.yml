@@ -126,8 +126,9 @@ jobs:
           }
           while :; do
             read -r LAST PHASE <<< "$(checkpoint)"
-            [ -n "$LAST" ] || { echo "::error::No checkpoint found"; exit 1; }
-            if [ "$PHASE" = "awaiting_review" ]; then
+            if [ -z "$LAST" ]; then
+              DAY="$OPENING"; REVIEWED=""
+            elif [ "$PHASE" = "awaiting_review" ]; then
               DAY=$(date -u -d "$LAST + 1 day" +%F); REVIEWED=$LAST
             else
               DAY=$LAST; REVIEWED=$(date -u -d "$LAST - 1 day" +%F)   # finish a day that stopped part-way
