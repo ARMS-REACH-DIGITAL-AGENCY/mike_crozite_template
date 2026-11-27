@@ -154,7 +154,7 @@ export function ScoringRules() {
         <h4>W-L% (inning 9)</h4>
         <ul>
           <li>Every alumnus on a team&apos;s roster that week counts his team&apos;s record, whether he played or not. Ten players whose teams each went 3–4 make the school 30–40.</li>
-          <li>The school with the higher winning percentage gets the run. A school with no alumni on a team counts as .500.</li>
+          <li>The school with the higher winning percentage gets the run. A 0–0 club record counts as .000. If the percentages are equal, neither school scores.</li>
         </ul>
       </section>
 

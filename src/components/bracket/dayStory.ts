@@ -139,8 +139,8 @@ export function inningStory(index: Index, g: GameRow, box: GameBox | undefined, 
   let who: string;
   if (k === 8) {
     const [mw, ml] = mySide.wl || [0, 0], [tw, tl] = oppSide.wl || [0, 0];
-    // A school whose alumni's clubs didn't play counts as .500 (the engine's rule).
-    const went = (w: number, l: number) => (w + l ? `went ${w}-${l}` : "didn't play, which counts as .500");
+    // A 0–0 club record counts as .000 under the current rule.
+    const went = (w: number, l: number) => (w + l ? `went ${w}-${l}` : "recorded no club games (0–0)");
     who = !(mw + ml + tw + tl) ? "The 9th is the alumni's real clubs: neither school's played this week."
       : mw + ml && tw + tl ? `The 9th is the alumni's real clubs: ${poss(school)} went ${mw}-${ml} this week, ${poss(opp)} ${tw}-${tl}.`
       : `The 9th is the alumni's real clubs this week: ${poss(school)} ${went(mw, ml)}; ${poss(opp)} ${went(tw, tl)}.`;
