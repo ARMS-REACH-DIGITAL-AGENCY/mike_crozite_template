@@ -95,37 +95,20 @@ const BAT_COLS: Col[] = [['OPS+', 25], ...['AB', 'H', '2B', '3B', 'HR', 'BB', 'H
 const PIT_COLS: Col[] = [['FIP-', 25], ...['IP', 'H', 'R', 'ER', 'HR', 'BB', 'HBP', 'K'].map((l) => [l, 17]), ['WHIP', 28], ['K/BB', 28], ['FIP', 28], [CLUB_WL_LABEL, 25]].map(([label, w]) => ({ label: label as string, w: w as number }));
 // Row lines come from the table's own rules (no per-cell styling), which keeps the
 // email under Gmail's 102 KB clipping limit.
-const GRID = `<table width="100%" cellpadding="0" cellspacing="0" border="1" frame="void" rules="rows" role="presentation" style="width:100%;table-layout:fixed;border-collapse:collapse;border-color:${LINE};margin:0 0 18px;font:11px/21px ${FONT};color:#121212;white-space:nowrap">`;
-// The drawer shrinks text that doesn't fit its column; an email can't measure, so
-// each label, number and name is sized from its characters' widths (Arial/Roboto,
-// in ems) to fit its column on the narrowest phone (360px).
-const EM: Record<string, number> = { '.': 0.28, '-': 0.33, '/': 0.28, '+': 0.58, ' ': 0.28, '1': 0.56, I: 0.28, i: 0.22, l: 0.22, j: 0.22, t: 0.28, f: 0.28, r: 0.33, W: 0.94, M: 0.83, m: 0.83, w: 0.72 };
-const ems = (text: string, upper = false) => [...text].reduce((n, c) => n + (EM[c] ?? (upper || /[A-Z]/.test(c) ? 0.7 : 0.56)), 0);
-function fit(text: string, room: number, size: number, min: number, bold = false, upper = false): number {
-  const need = ems(text, upper) * (bold ? 1.07 : 1) * size;
-  return need <= room ? size : Math.max(min, Math.floor((room / need) * size * 10) / 10);
-}
-const sized = (text: string | number, room: number, bold: boolean) => {
-  const v = String(text), f = fit(v, room - 1, 11, 7, bold);
-  return f === 11 ? v : `<span style="font-size:${f}px;letter-spacing:-.02em">${v}</span>`;
-};
-const gridHead = (title: string, cols: Col[]) => `<tr><td style="padding:5px 3px 5px 6px;background:${HEAD_BG};color:${HEAD_C};font:600 11px/1 ${HEAD_FONT};text-align:left;text-transform:uppercase;white-space:nowrap;border-radius:5px 0 0 5px">${title}</td>`
-  + cols.map((c, i) => `<td width="${c.w}" style="width:${c.w}px;padding:5px 0;background:${HEAD_BG};color:${HEAD_C};font:600 10px/1 ${HEAD_FONT};text-align:center;white-space:nowrap${i === cols.length - 1 ? ';border-radius:0 5px 5px 0' : ''}">${fit(c.label, c.w - 1, 10, 7, true, true) === 10 ? c.label : `<span style="font-size:${fit(c.label, c.w - 1, 10, 7, true, true)}px">${c.label}</span>`}</td>`).join('') + '</tr>';
+const GRID = `<table class="dr" width="100%" cellpadding="1" cellspacing="0" border="1" frame="void" rules="rows" role="presentation" style="width:100%;table-layout:auto;border-collapse:collapse;border-color:${LINE};margin:0 0 18px;font:10px/21px Arial,Helvetica,sans-serif;color:#121212;white-space:nowrap">`;
+const gridHead = (title: string, cols: Col[]) => `<tr><td style="padding:5px 2px;background:${HEAD_BG};color:${HEAD_C};font:bold 10px/1 Arial,sans-serif;text-align:left;white-space:nowrap">${title}</td>`
+  + cols.map(c => `<td style="padding:5px 1px;background:${HEAD_BG};color:${HEAD_C};font:bold 9px/1 Arial,sans-serif;text-align:center;white-space:nowrap">${c.label}</td>`).join('') + '</tr>';
 const cell = (v: string | number) => `<td>${v}</td>`;
 const goldCell = (v: string) => `<td style="color:${GOLD_C};font-weight:700">${v}</td>`;
-// A name fits beside its logo on a 360px phone (about 49px of room).
-const NAME_ROOM = 49;
-const nameSize = (name: string, bold: boolean) => fit(name, NAME_ROOM, 11, 6.5, bold);
 const nameCell = (row: { name: string; logo?: string; bold?: boolean }) => {
   const logo = safeUrl(row.logo);
   const art = logo
     ? `<img src="${esc(logo)}" width="17" height="17" alt="" style="display:inline-block;width:17px;height:17px;margin-right:3px;vertical-align:middle;border:0">`
     : '<span style="display:inline-block;width:17px;height:17px;margin-right:3px;vertical-align:middle"></span>';
-  const size = nameSize(row.name, !!row.bold);
-  return `<td align="left" style="padding:0 3px 0 2px;overflow:hidden">${art}<span style="${size === 11 ? '' : `font-size:${size}px;`}vertical-align:middle">${esc(row.name)}</span></td>`;
+  return `<td align="left" style="padding:0 2px;white-space:nowrap">${art}<span style="vertical-align:middle">${esc(row.name)}</span></td>`;
 };
 const rowOpen = (bold?: boolean) => `<tr align="center"${bold ? ' style="font-weight:800;color:#000"' : ''}>`;
-const totalRow = (label: string, cells: string[]) => `<tr align="center" style="font-weight:700"><td align="left" style="padding-left:22px;text-transform:uppercase">${label}</td>` + cells.join('') + '</tr>';
+const totalRow = (label: string, cells: string[]) => `<tr align="center" style="font-weight:700"><td align="left" style="padding-left:2px;text-transform:uppercase">${label}</td>` + cells.join('') + '</tr>';
 // Transactions keep the same header and row lines.
 const TABLE = GRID;
 const HEAD = (first: string, cols: string[]) => `<tr><td width="52" style="width:52px;padding:5px 0 5px 6px;background:${HEAD_BG};color:${HEAD_C};font:600 11px/1 ${HEAD_FONT};text-align:left;border-radius:5px 0 0 5px">${first}</td>`
@@ -148,8 +131,7 @@ function pitchCells(p: { outs: number; h: number; r: number; er: number; hr: num
 }
 
 // Each stat cell shrunk to its column when its number is too wide (e.g. 21-20, 1.006).
-const fitCells = (cells: string[], cols: Col[], bold: boolean) =>
-  cells.map((c, i) => c.replace(/>([^<>]*)<\/td>$/, (_, v: string) => `>${sized(v, cols[i].w, bold)}</td>`));
+const fitCells = (cells: string[], _cols: Col[], _bold: boolean) => cells;
 const fitRow = (cells: string[], cols: Col[], bold: boolean) => fitCells(cells, cols, bold).join('');
 
 function tables(t: GazetteTables): { html: string; text: string[] } {
@@ -188,7 +170,7 @@ function tables(t: GazetteTables): { html: string; text: string[] } {
 
 // A scoreboard picture across the newsletter's full width (720px).
 const WIDE = (url: string, alt: string) => `<img src="${esc(url)}" width="720" alt="${esc(alt)}" style="display:block;width:100%;max-width:720px;height:auto;margin:0 auto;border:0">`;
-const STYLE = '.p{padding:22px 22px}.h{text-align:center;font:bold 30px/1.1 Georgia,serif;margin:0 0 12px}.k{text-align:center;font:bold 10px Arial;letter-spacing:.17em;color:#19583f;margin:0 0 6px}.sec{border-bottom:3px solid #202820}@media only screen and (max-width:600px){.lz td.lzc{display:block!important;width:100%!important;padding:0!important}.lz td.lzg{display:none!important}}';
+const STYLE = '.p{padding:22px 22px}.h{text-align:center;font:bold 30px/1.1 Georgia,serif;margin:0 0 12px}.k{text-align:center;font:bold 10px Arial;letter-spacing:.17em;color:#19583f;margin:0 0 6px}.sec{border-bottom:3px solid #202820}@media only screen and (max-width:600px){.lz td.lzc{display:block!important;width:100%!important;padding:0!important}.lz td.lzg{display:none!important}.dr td{font-size:9px!important;padding-left:1px!important;padding-right:1px!important}.dr td:first-child{font-size:10px!important}}';
 const FEATURES = [{ key: 'connect', heading: 'Connect' }, { key: 'contribute', heading: 'Contribute' }, { key: 'remember', heading: 'Remember' }] as const;
 const P = (text: string, extra = '') => `<p style="margin:0 0 14px;font:17px/1.7 Georgia,serif${extra}">${esc(text)}</p>`;
 
