@@ -161,7 +161,16 @@ function playerHeadshotHtml(player: any) {
   return `<img src="${esc(sources[0])}" alt="" class="yat-search-thumb yat-search-player-headshot" data-headshot-sources="${esc(JSON.stringify(sources))}" data-headshot-index="0" data-silhouette-fallback="${fallback}" onerror="const sources=JSON.parse(this.dataset.headshotSources||'[]');const index=Number(this.dataset.headshotIndex||0)+1;this.dataset.headshotIndex=String(index);if(!sources[index]){this.onerror=null;return;}this.dataset.silhouetteFallback=String(index===sources.length-1);if(index===sources.length-1)this.onerror=null;this.src=sources[index];" />`;
 }
 
-export function renderPlayerRows(players: any[], emptyText: string) {
+// Tag search is a selection, never a favorite or navigation action.
+function tagPlayerRowHtml(p:any,name:string,secondLine:string,crest:string) {
+  return `<button type="button" class="yat-search-card yat-search-player-result ypt-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-headshot-url="${esc(playerHeadshotUrl(p))}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(String(p.schoolName || p.hsname || ''))}" aria-label="Tag ${esc(name)}">
+    ${playerHeadshotHtml(p)}
+    <span class="yat-search-player-text-link"><strong>${esc(name)}</strong>${secondLine ? `<small class="yat-search-hs-line">${esc(secondLine)}</small>` : ''}</span>
+    <img src="${esc(crest)}" alt="" class="yat-search-thumb yat-search-player-hs-logo" onerror="this.src='${schoolLogoFallback()}';this.onerror=null" />
+    <span class="ypt-add"><i class="ri-add-line" aria-hidden="true"></i> TAG</span>
+  </button>`;
+}
+export function renderPlayerRows(players: any[], emptyText: string, options:{tagPicker?:boolean}={}) {
   if (!players.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
 
   return `
@@ -175,6 +184,7 @@ export function renderPlayerRows(players: any[], emptyText: string) {
         const team = String(p.currentTeamName || p.current_team_name || '').trim();
         const schoolHover = school ? `${school}${location ? ` (${location})` : ''} · Flip card gallery` : 'Flip card gallery';
         const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
+        if(options.tagPicker)return tagPlayerRowHtml(p,name,secondLine,crest);
         return `
           <div class="yat-search-card yat-search-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-headshot-url="${esc(playerHeadshotUrl(p))}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
             ${favoriteButtonHtml(p, name)}
@@ -309,7 +319,7 @@ export function renderSchoolRows(
   `).join('');
 }
 
-export function renderTeamRows(players: any[], emptyText: string) {
+export function renderTeamRows(players: any[], emptyText: string, options:{tagPicker?:boolean}={}) {
   if (!players.length) return `<div class="yat-search-empty">${esc(emptyText)}</div>`;
 
   const grouped = new Map<string, any[]>();
@@ -338,6 +348,7 @@ export function renderTeamRows(players: any[], emptyText: string) {
         const team = String(p.currentTeamName || p.current_team_name || '').trim();
         const schoolHover = school ? `${school}${location ? ` (${location})` : ''} · Flip card gallery` : 'Flip card gallery';
             const crest = schoolCrestUrl(schoolIdOf(p), p.crestUrl || p.crest_url || p.logoUrl || p.logo_url || p.schoolLogoUrl || p.school_logo_url);
+        if(options.tagPicker)return tagPlayerRowHtml(p,name,secondLine,crest);
             return `
               <div class="yat-search-card yat-search-team-player-card yat-search-player-result" data-player-id="${esc(playerIdOf(p))}" data-player-name="${esc(name)}" data-headshot-url="${esc(playerHeadshotUrl(p))}" data-school-id="${esc(schoolIdOf(p))}" data-school-name="${esc(school)}">
                 ${favoriteButtonHtml(p, name)}
