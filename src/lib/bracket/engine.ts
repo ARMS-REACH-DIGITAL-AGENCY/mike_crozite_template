@@ -31,23 +31,15 @@
 // numbers, weighted by playing time: OPS+ by plate appearances, FIP- by
 // innings pitched. (Averages, so more alumni never helps by itself.)
 //
-// Ties after 9: extra innings, player vs player. The 10th compares each
-// school's best weekly hitter (higher OPS+ wins 1 run) and best weekly
-// pitcher (lower FIP- wins 1 run); the 11th the #2s, and so on. Whichever of
-// the two matchups both schools can supply is played - no pitchers on one
-// side doesn't cancel the hitters' matchup - and nobody needs to beat league
-// average: the better number wins (Tiebreaker #1). When the same-type
-// matchups run out with the game still tied, the next innings are hitter vs
-// pitcher (Tiebreaker #2): the players #1 couldn't match, each school's next
-// hitter against the other's next pitcher, inning by inning, the run going to
-// whoever is closer to (or further above) league average - OPS+ - 100 for the
-// hitter, 100 - FIP- for the pitcher. Still tied, or nothing left to compare:
-// the better run differential of the alumni's real clubs that week wins
-// (Tiebreaker #3, summed per alumnus like the W-L inning). Even there too: the
-// school with the bigger fan base (registered YAT?STATS fans when the game
-// went final) wins. Even there too: the commissioner decides. Exact stat
-// ties award no run.
-//
+// Ties after 9: the only extra inning is the 10th, worth one winning run.
+// Compare ranked weekly hitters head to head and pitchers head to head.
+// If only one side has a performance of that type, use the opponent's next
+// unused other-type performance; compare their same-week field percentiles.
+// No performance can be used twice. Compare both slots before deciding a
+// stage; if split, continue internally. When paired performances run out,
+// use club run differential, fan base, then the commissioner's decision.
+// None of these internal comparisons add to the official run total.
+ //
 // W-L% counts every alumnus on a club's roster that week, game or no game:
 // a pitcher who throws once a week for a winning club helps his school; a
 // bench player on a losing club doesn't.
@@ -248,7 +240,7 @@ export type GameResult = {
   // to come.
   decidedBy: 'runs' | 'players' | 'cross' | 'runDiff' | 'fans' | 'commissioner' | 'tie';
   tieRank?: number; // 'players': which ranked hitter/pitcher pair decided it.
-  tieScore?: [number, number]; // cumulative tiebreak runs, home first.
+  tieScore?: [number, number]; // internal comparison wins, not official runs.
 };
 
 function compareHigher(a: number, b: number): [number, number] {
@@ -279,7 +271,7 @@ function scoreInning(inning: number, kind: 'day' | 'week', home: PlayerLines, aw
   return { inning, kind, home: h, away: a, homeOffense: ho, awayOffense: ao, homePitching: hp, awayPitching: ap };
 }
 
-export const winPct = (w: number, l: number) => (w + l ? w / (w + l) : null);
+export const winPct = (w: number, l: number) => (w + l ? w / (w + l) : 0);
 
 // A school's alumni ranked on the week: hitters by OPS+ (best first),
 // pitchers by FIP- (best = lowest first). Each player's week is measured
@@ -297,62 +289,93 @@ export function rankPlayers(players: PlayerLines | undefined, baselines: Baselin
   return { hitters, pitchers };
 }
 
-// The extra-innings ladder (see the header):
-//   #1 hitter vs #1 hitter and #1 pitcher vs #1 pitcher, one run each -
-//   whichever of the two both schools can supply; then #2, #3 ... while
-//   either matchup exists (Tiebreaker #1). Then hitter-vs-pitcher innings on
-//   distance from league average (Tiebreaker #2, adjusted mode only).
-//   winner null: on to the next tiebreakers.
-function playerTiebreak(
-  home: SideWeek,
-  away: SideWeek,
-  baselines: Baselines,
-  rules: Rules,
-): { winner: Side | null; rank?: number; cross?: boolean; crossFrom?: number; innings: [number, number][] } {
-  const h = rankPlayers(home.players ?? mergeLines(home.days), baselines, rules.mode);
-  const a = rankPlayers(away.players ?? mergeLines(away.days), baselines, rules.mode);
-  const innings: [number, number][] = [];
-
-  for (let k = 0; ; k++) {
-    const hitters = k < h.hitters.length && k < a.hitters.length;
-    const pitchers = k < h.pitchers.length && k < a.pitchers.length;
-    if (!hitters && !pitchers) break;
-    const [hx, ax] = hitters ? compareHigher(h.hitters[k], a.hitters[k]) : [0, 0];
-    // Lower FIP- wins, so reverse the comparison.
-    const [hp, ap] = pitchers ? compareHigher(-h.pitchers[k], -a.pitchers[k]) : [0, 0];
-    const inning: [number, number] = [hx + hp, ax + ap];
-    innings.push(inning);
-    // Every prior tiebreak inning was level, otherwise the game would
-    // already have ended. The first non-level one decides it.
-    if (inning[0] !== inning[1]) return { winner: inning[0] > inning[1] ? 'home' : 'away', rank: k + 1, innings };
+// Both distributions contain higher-is-better numbers; pitching is -FIP-.
+// Use all eligible performances in the same tournament week, not historic
+// percentiles, and midpoint ranks for exact ties. These are raw precision
+// scores, not the rounded drawer values.
+export type WeeklyPerformancePool = { hitters: number[]; pitchers: number[] };
+export function buildWeeklyPerformancePool(weeks: Iterable<SideWeek>, baselines: Baselines, mode: Mode): WeeklyPerformancePool {
+  const hitters: number[] = [], pitchers: number[] = [];
+  for (const week of weeks) {
+    const ranked = rankPlayers(week.players ?? mergeLines(week.days), baselines, mode);
+    hitters.push(...ranked.hitters);
+    pitchers.push(...ranked.pitchers.map(v => -v));
   }
-
-  // Tiebreaker #2, the next extra innings: hitter vs pitcher on the plus
-  // scale - a hitter's OPS+ - 100 against a pitcher's 100 - FIP-, the run to
-  // whoever is closer to (or further above) league average. It uses the
-  // players Tiebreaker #1 couldn't match: inning by inning, each school's
-  // next hitter against the other's next pitcher, until those run out. If #1
-  // matched everyone, it starts again from each school's best. Adjusted mode
-  // only (raw OPS and FIP aren't on one scale).
-  if (rules.mode === 'adjusted') {
-    const uh = Math.min(h.hitters.length, a.hitters.length);
-    const up = Math.min(h.pitchers.length, a.pitchers.length);
-    let hh = h.hitters.slice(uh), ah = a.hitters.slice(uh), hp = h.pitchers.slice(up), ap = a.pitchers.slice(up);
-    if (!(hh.length && ap.length) && !(ah.length && hp.length)) { hh = h.hitters; ah = a.hitters; hp = h.pitchers; ap = a.pitchers; }
-    const crossFrom = innings.length;
-    for (let k = 0; ; k++) {
-      const homeBats = k < hh.length && k < ap.length; // home hitter vs away pitcher
-      const awayBats = k < ah.length && k < hp.length; // away hitter vs home pitcher
-      if (!homeBats && !awayBats) break;
-      let x = 0, y = 0;
-      if (homeBats) { const [p, q] = compareHigher(hh[k] - 100, 100 - ap[k]); x += p; y += q; }
-      if (awayBats) { const [p, q] = compareHigher(100 - hp[k], ah[k] - 100); x += p; y += q; }
-      innings.push([x, y]);
-      if (x !== y) return { winner: x > y ? 'home' : 'away', cross: true, crossFrom, innings };
+  return { hitters: hitters.sort((a, b) => a - b), pitchers: pitchers.sort((a, b) => a - b) };
+}
+function bound(a: number[], value: number, inclusive: boolean) {
+  let lo = 0, hi = a.length;
+  while (lo < hi) {
+    const m = (lo + hi) >>> 1;
+    if (a[m] < value || (inclusive && a[m] === value)) lo = m + 1; else hi = m;
+  }
+  return lo;
+}
+// Return the exact fraction's doubled numerator and denominator; cross
+// multiply, so different cohort sizes and display rounding cannot break ties.
+function percentileRank(a: number[], value: number): [number, number] {
+  if (!a.length) throw new Error('Missing same-week percentile cohort');
+  return [bound(a, value, false) + bound(a, value, true), a.length];
+}
+type Ranked = ReturnType<typeof rankPlayers>;
+type Role = 'hitters' | 'pitchers';
+const opposite = (role: Role): Role => role === 'hitters' ? 'pitchers' : 'hitters';
+export function resolvePlayerTiebreak(home: Ranked, away: Ranked, rules: Rules, pool?: WeeklyPerformancePool): {
+  winner: Side | null; rank?: number; cross?: boolean; comparisons: [number, number];
+} {
+  const h: Ranked = { hitters: [...home.hitters], pitchers: [...home.pitchers] };
+  const a: Ranked = { hitters: [...away.hitters], pitchers: [...away.pitchers] };
+  const total = (r: Ranked) => r.hitters.length + r.pitchers.length;
+  const comparisons: [number, number] = [0, 0];
+  const roles: Role[] = ['hitters', 'pitchers'];
+  for (let rank = 1; total(h) && total(a); rank++) {
+    let x = 0, y = 0, cross = false, matched = 0;
+    const add = ([p, q]: [number, number]) => { x += p; y += q; };
+    const missing: Role[] = roles.filter(role => Boolean(h[role].length) !== Boolean(a[role].length));
+    // Reserve the same-type slots before any substitute is used.
+    for (const role of roles) if (h[role].length && a[role].length) {
+      const hv = h[role].shift()!, av = a[role].shift()!;
+      add(compareHigher(role === 'hitters' ? hv : -hv, role === 'hitters' ? av : -av));
+      matched++;
     }
-    if (innings.length > crossFrom) return { winner: null, crossFrom, innings };
+    // A missing slot may be filled by the other side's next unused
+    // performance. When the sides have opposite roles only, there is one
+    // cross-type matchup per stage, not two fictional slots.
+    for (const role of missing) {
+      if (matched >= 2 || (cross && missing.length === 2)) break;
+      const other = opposite(role);
+      const homeHas = h[role].length > 0;
+      const awayHas = a[role].length > 0;
+      if (homeHas === awayHas) continue;
+      const hr = homeHas ? role : other, ar = awayHas ? role : other;
+      if (h[hr].length && a[ar].length && rules.mode === 'adjusted') {
+        if (!pool) throw new Error('Cross-position tiebreak requires the full same-week performance cohort');
+        const hv = h[hr].shift()!, av = a[ar].shift()!;
+        const [hn, hd] = percentileRank(pool[hr], hr === 'hitters' ? hv : -hv);
+        const [an, ad] = percentileRank(pool[ar], ar === 'hitters' ? av : -av);
+        add(compareHigher(hn * ad, an * hd));
+        cross = true; matched++;
+      } else if (matched) {
+        // The ordinary uncontested-run rule applies only to an unfilled
+        // slot in a stage with a real opposing matchup. Once one school's
+        // available performances are exhausted, use the next tiebreaker.
+        const hv = homeHas ? h[role].shift()! : null;
+        const av = awayHas ? a[role].shift()! : null;
+        add(compareSides(hv, av, role === 'hitters' ? averageOffense(rules.mode) : averagePitching(rules.mode), role === 'hitters', 'hold'));
+      }
+    }
+    if (!matched) break;
+    comparisons[0] += x; comparisons[1] += y;
+    if (x !== y) return { winner: x > y ? 'home' : 'away', rank, cross, comparisons };
   }
-  return { winner: null, innings };
+  return { winner: null, comparisons };
+}
+function playerTiebreak(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules, pool?: WeeklyPerformancePool) {
+  return resolvePlayerTiebreak(
+    rankPlayers(home.players ?? mergeLines(home.days), baselines, rules.mode),
+    rankPlayers(away.players ?? mergeLines(away.days), baselines, rules.mode),
+    rules, pool,
+  );
 }
 
 export function volume(buckets: LevelBuckets) {
@@ -367,7 +390,7 @@ export function volume(buckets: LevelBuckets) {
 // 'commissioner' (still to be decided).
 // fans: each school's fan base when the game went final [home, away], for
 // the fan-base step before the commissioner.
-export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules, allowTie = false, commissioner?: () => Side | null, fans?: [number, number]): GameResult {
+export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, rules: Rules, allowTie = false, commissioner?: () => Side | null, fans?: [number, number], weeklyPool?: WeeklyPerformancePool): GameResult {
   const innings: Inning[] = [];
   for (let d = 0; d < 7; d++) innings.push(scoreInning(d + 1, 'day', home.days[d] || new Map(), away.days[d] || new Map(), baselines, rules));
   const homeWeek = mergeLines(home.days);
@@ -375,73 +398,30 @@ export function playGame(home: SideWeek, away: SideWeek, baselines: Baselines, r
   innings.push(scoreInning(8, 'week', homeWeek, awayWeek, baselines, rules));
   const hw = winPct(home.wins, home.losses);
   const aw = winPct(away.wins, away.losses);
-  // A school whose alumni's clubs didn't play counts as .500.
-  const [x, y] = hw === null && aw === null ? [0, 0] : compareHigher(hw ?? 0.5, aw ?? 0.5);
+  // A 0–0 club record is .000, not .500 (Pete, Nov 26, 2026).
+  // Equal percentages, including two .000 records, award no run.
+  const [x, y] = compareHigher(hw, aw);
   innings.push({ inning: 9, kind: 'wl', home: x, away: y, homeWinPct: hw, awayWinPct: aw });
 
   let hr = innings.reduce((sum, i) => sum + i.home, 0);
   let ar = innings.reduce((sum, i) => sum + i.away, 0);
   if (hr !== ar) return { innings, home: hr, away: ar, winner: hr > ar ? 'home' : 'away', decidedBy: 'runs' };
 
-  // Ties after 9 become visible extra innings: inning 10 the #1s, 11 the
-  // #2s ... then the hitter-vs-pitcher inning (see playerTiebreak).
-  const pt = playerTiebreak(home, away, baselines, rules);
-  pt.innings.forEach(([h, a], i) => {
-    innings.push({ inning: 10 + i, kind: pt.crossFrom !== undefined && i >= pt.crossFrom ? 'cross' : 'tiebreak', home: h, away: a });
-    hr += h;
-    ar += a;
-  });
-  const tieScore: [number, number] = [
-    pt.innings.reduce((sum, x) => sum + x[0], 0),
-    pt.innings.reduce((sum, x) => sum + x[1], 0),
-  ];
-
-  if (pt.winner) {
-    return {
-      innings,
-      home: hr,
-      away: ar,
-      winner: pt.winner,
-      decidedBy: pt.cross ? 'cross' : 'players',
-      tieRank: pt.rank,
-      tieScore,
-    };
-  }
-
-  // Nothing left to compare: the better club run differential wins, an extra
-  // inning worth one run (only for a game being decided - not one still in
-  // progress).
+  // In-progress games do not make a provisional tiebreak decision.
+  if (allowTie) return { innings, home: hr, away: ar, winner: null, decidedBy: 'tie' };
+  const pt = playerTiebreak(home, away, baselines, rules, weeklyPool);
+  const finish = (winner: Side, decidedBy: GameResult['decidedBy'], kind: Inning['kind'], tieRank?: number): GameResult => {
+    const h = winner === 'home' ? 1 : 0, a = winner === 'away' ? 1 : 0;
+    innings.push({ inning: 10, kind, home: h, away: a });
+    return { innings, home: hr + h, away: ar + a, winner, decidedBy, tieRank, tieScore: pt.comparisons };
+  };
+  if (pt.winner) return finish(pt.winner, pt.cross ? 'cross' : 'players', pt.cross ? 'cross' : 'tiebreak', pt.rank);
   const hd = home.runDiff ?? 0, ad = away.runDiff ?? 0;
-  if (!allowTie && hd !== ad) {
-    const run: [number, number] = hd > ad ? [1, 0] : [0, 1];
-    innings.push({ inning: 10 + pt.innings.length, kind: 'runDiff', home: run[0], away: run[1] });
-    hr += run[0];
-    ar += run[1];
-    return { innings, home: hr, away: ar, winner: run[0] ? 'home' : 'away', decidedBy: 'runDiff', tieScore: [tieScore[0] + run[0], tieScore[1] + run[1]] };
-  }
-
-  // Even run differentials: the bigger fan base wins, the same way.
-  if (!allowTie && fans && fans[0] !== fans[1]) {
-    const run: [number, number] = fans[0] > fans[1] ? [1, 0] : [0, 1];
-    innings.push({ inning: 10 + pt.innings.length, kind: 'fans', home: run[0], away: run[1] });
-    hr += run[0];
-    ar += run[1];
-    return { innings, home: hr, away: ar, winner: run[0] ? 'home' : 'away', decidedBy: 'fans', tieScore: [tieScore[0] + run[0], tieScore[1] + run[1]] };
-  }
-
-  // Even fan bases too: the commissioner decides. His decision is an extra
-  // inning worth one run, so a decided game never ends tied.
+  if (hd !== ad) return finish(hd > ad ? 'home' : 'away', 'runDiff', 'runDiff');
+  if (fans && fans[0] !== fans[1]) return finish(fans[0] > fans[1] ? 'home' : 'away', 'fans', 'fans');
   const ruling = commissioner?.() ?? null;
-  if (ruling) {
-    const run: [number, number] = ruling === 'home' ? [1, 0] : [0, 1];
-    innings.push({ inning: 10 + pt.innings.length, kind: 'commissioner', home: run[0], away: run[1] });
-    hr += run[0];
-    ar += run[1];
-    return { innings, home: hr, away: ar, winner: ruling, decidedBy: 'commissioner', tieScore: [tieScore[0] + run[0], tieScore[1] + run[1]] };
-  }
-
-  if (allowTie) return { innings, home: hr, away: ar, winner: null, decidedBy: 'tie', tieScore };
-  return { innings, home: hr, away: ar, winner: null, decidedBy: 'commissioner', tieScore };
+  if (ruling) return finish(ruling, 'commissioner', 'commissioner');
+  return { innings, home: hr, away: ar, winner: null, decidedBy: 'commissioner', tieScore: pt.comparisons };
 }
 
 // ---------------------------------------------------------------------------
