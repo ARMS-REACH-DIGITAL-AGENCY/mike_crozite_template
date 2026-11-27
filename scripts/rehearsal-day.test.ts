@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { recordedRequest, validateRehearsalDay, publicationRequests, type Snapshot } from './rehearsal-day';
 import { setRehearsalDay, simulationAsOf } from '../src/components/bracket/simulationState';
 
-test('a fresh rehearsal starts with one explicit March 25 day', () => {
-  validateRehearsalDay('2026-03-25');
-  for (const day of ['', '2026-02-30', '2026-99-01', '2026-03-26', '2026-11-16']) assert.throws(() => validateRehearsalDay(day));
+test('a fresh rehearsal starts with one explicit March 23 day', () => {
+  validateRehearsalDay('2026-03-23');
+  for (const day of ['', '2026-02-30', '2026-99-01', '2026-03-24', '2026-03-25', '2026-03-26', '2026-11-16']) assert.throws(() => validateRehearsalDay(day));
 });
 test('unfinished publications, missing review, skipped dates and reverse dates cannot advance', () => {
   for (const phase of ['running', 'scored']) assert.throws(() => validateRehearsalDay('2026-03-26', { report_date: '2026-03-25', phase }, '2026-03-25'));
