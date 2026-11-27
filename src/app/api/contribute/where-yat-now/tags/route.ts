@@ -36,23 +36,26 @@ export async function POST(req:NextRequest){
   const body=await req.json().catch(()=>null);
   const id=parseId(String(body?.id||''));
   const key=parseKey(typeof body?.storyKey==='string'?body.storyKey:null);
-  const playerId=typeof body?.playerId==='string'?body.playerId.trim():'';
-  if(!id||!key||!/^[0-9]{1,18}$/.test(playerId))return bad('Choose a player from search.');
+  let playerId=typeof body?.playerId==='string'?body.playerId.trim():'';
+  if(!id||!key||!/^(?:[0-9]{1,18}|YAT[0-9]{6,})$/.test(playerId))return bad('Choose a player from search.');
   if(body?.action!=='tag'&&body?.action!=='untag')return bad('Unknown tag action.');
   try{
     const post=await approved(id,key);if(!post)return bad('Memory unavailable.',404);
-    if(post.playerid===playerId)return bad('This player already owns this memory.');
+    const {rows:identity}=await query<{target:string|null;primary_id:string|null}>(
+      'SELECT public.yat_id_for($1::text) AS target, public.yat_id_for($2::text) AS primary_id',[playerId,post.playerid]);
+    if(post.playerid===playerId||(identity[0]?.target&&identity[0].target===identity[0].primary_id))return bad('This player already owns this memory.');
     if(body.action==='tag'){
-      const {rows:known}=await query<{playerid:string}>('SELECT playerid::text FROM flip_card_front_stage WHERE playerid::text=$1 LIMIT 1',[playerId]);
+      const {rows:known}=await query<{playerid:string}>('SELECT playerid::text FROM flip_card_front_stage WHERE playerid::text=$1 OR yatid=public.yat_id_for($1::text) ORDER BY (playerid::text=$1) DESC,hsid LIMIT 1',[playerId]);
       if(!known.length)return bad('Choose a player from search.');
+      playerId=known[0].playerid;
       const {rows:result}=await query<{inserted:string|null;already:boolean}>(
-        "WITH locked AS (SELECT id FROM alumni_where_yat_now WHERE id=$1 AND status='approved' FOR UPDATE), capacity AS (SELECT count(*)::int AS n FROM alumni_where_yat_memory_tags WHERE submission_id=$1 AND story_key=$2), ins AS (INSERT INTO alumni_where_yat_memory_tags(submission_id,story_key,playerid,tagged_by_firebase_uid) SELECT locked.id,$2,$3,$4 FROM locked,capacity WHERE capacity.n<20 ON CONFLICT(submission_id,story_key,playerid) DO NOTHING RETURNING playerid) SELECT (SELECT playerid FROM ins) AS inserted, EXISTS(SELECT 1 FROM alumni_where_yat_memory_tags WHERE submission_id=$1 AND story_key=$2 AND playerid=$3) AS already",
+        "WITH locked AS (SELECT id FROM alumni_where_yat_now WHERE id=$1 AND status='approved' FOR UPDATE), capacity AS (SELECT count(*)::int AS n FROM alumni_where_yat_memory_tags WHERE submission_id=$1 AND story_key=$2), ins AS (INSERT INTO alumni_where_yat_memory_tags(submission_id,story_key,playerid,tagged_by_firebase_uid) SELECT locked.id,$2,$3,$4 FROM locked,capacity WHERE capacity.n<20 AND NOT EXISTS(SELECT 1 FROM alumni_where_yat_memory_tags existing WHERE existing.submission_id=$1 AND existing.story_key=$2 AND (existing.playerid=$3 OR existing.yatid=public.yat_id_for($3::text))) ON CONFLICT(submission_id,story_key,playerid) DO NOTHING RETURNING playerid) SELECT (SELECT playerid FROM ins) AS inserted, EXISTS(SELECT 1 FROM alumni_where_yat_memory_tags WHERE submission_id=$1 AND story_key=$2 AND (playerid=$3 OR yatid=public.yat_id_for($3::text))) AS already",
         [id,key,playerId,fan.uid]
       );
       if(!result[0]?.inserted&&!result[0]?.already)return bad('Up to 20 players can be tagged per memory.',409);
     }else{
       const {rows:deleted}=await query<{playerid:string}>(
-        "DELETE FROM alumni_where_yat_memory_tags t USING alumni_where_yat_now m WHERE t.submission_id=m.id AND m.id=$1 AND t.story_key=$2 AND t.playerid=$3 AND m.status='approved' AND (t.tagged_by_firebase_uid=$4 OR m.contributor_uid=$4) RETURNING t.playerid",
+        "DELETE FROM alumni_where_yat_memory_tags t USING alumni_where_yat_now m WHERE t.submission_id=m.id AND m.id=$1 AND t.story_key=$2 AND (t.playerid=$3 OR t.yatid=public.yat_id_for($3::text)) AND m.status='approved' AND (t.tagged_by_firebase_uid=$4 OR m.contributor_uid=$4) RETURNING t.playerid",
         [id,key,playerId,fan.uid]
       );
       if(!deleted.length)return bad('Only the tagger or original author can remove this tag.',403);

@@ -2,7 +2,7 @@
 
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { auth } from '@/lib/firebase';
-import { openSignIn, useFanMe } from './StoryViewer';
+import { openSignIn, useFanMe, useCommentComposerHeight } from './StoryViewer';
 import PlayerTagging from './PlayerTagging';
 
 type Comment = { id: string; text: string; when: string; author: string };
@@ -50,6 +50,7 @@ export default function WhereYatReactions({
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const composerRef=useRef<HTMLTextAreaElement>(null);
+  useCommentComposerHeight(composerRef,draft,composerOpen&&Boolean(me));
   const name=[me?.firstName,me?.lastName].filter(Boolean).join(' ');
 
   const load=useCallback(async()=>{
@@ -76,7 +77,7 @@ export default function WhereYatReactions({
       window.removeEventListener('yat:where-yat-reaction',refresh);
     };
   },[load,enabled]);
-  useEffect(()=>{if(mode==='viewer'&&focusComment&&composerOpen)composerRef.current?.focus()},[mode,focusComment,composerOpen]);
+  useEffect(()=>{if(mode==='viewer'&&focusComment&&composerOpen)composerRef.current?.focus({preventScroll:true})},[mode,focusComment,composerOpen,me]);
 
   const act=async(action:'like'|'comment')=>{
     if(busy)return;
@@ -102,7 +103,7 @@ export default function WhereYatReactions({
   const comment=()=>{
     if(mode==='card'&&onOpenComment){onOpenComment();return;}
     if(!me&&!auth.currentUser){openSignIn();return;}
-    setComposerOpen(true);requestAnimationFrame(()=>composerRef.current?.focus());
+    setComposerOpen(true);requestAnimationFrame(()=>composerRef.current?.focus({preventScroll:true}));
   };
   const share=async()=>{const note=await shareWhereYatMemory(storyKey);if(note)setError(note)};
   const actions=<div className={mode==='viewer'?'ysv-actions':'ysf-card-actions'}>
