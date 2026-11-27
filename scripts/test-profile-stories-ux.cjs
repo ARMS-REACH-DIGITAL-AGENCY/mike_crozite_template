@@ -37,17 +37,24 @@ assert.match(timeline,/\.zt-rail-dash-logo :global\(img\) \{[^\n]*transform:none
 assert.match(timeline,/\.zt-rail-dash-logo \{ max-width:13px; max-height:13px; \}/,
   'Small screens cap the logos at 13 pixels');
 assert.match(timeline,/\.zt-nav \{[^\n]*border:0;[^\n]*background:transparent;/,'Arrows have no frame or opaque fill');
-assert.match(timeline,/left:calc\(32% - 24px - 800px\)/,'Tablet/medium photo clears copy');
+// d09b72c: move only the foreground action cutout 10px left and
+// dissolve its cropped top. Preserve the newer 34px clearance at every
+// breakpoint, without changing the HS figure or headshot fallback.
+assert.match(timeline,/\.zt-person-stack :global\(\.zt-person-now\) \{[^\n]*left:calc\(var\(--hero-copy-left\) - 34px - 800px\)/,'Desktop foreground action clears copy');
+assert.match(timeline,/\.zt-person-stack :global\(\.zt-person-now\) \{[^\n]*left:calc\(32% - 34px - 800px\)/,'Tablet/medium foreground action clears copy');
+assert.match(timeline,/\.zt-person-stack :global\(\.zt-person-now\[data-fallback="true"\]\) \{ left:calc\(var\(--hero-copy-left\) - 800px\); \}/,'Desktop headshot fallback stays flush');
+assert.match(timeline,/\.zt-person-stack :global\(\.zt-person-now\[data-fallback="true"\]\) \{ left:calc\(32% - 800px\); \}/,'Tablet headshot fallback stays flush');
+assert.match(timeline,/\.zt-person-stack :global\(\.zt-person-now:not\(\[data-fallback="true"\]\)\) \{\s*-webkit-mask-image:linear-gradient\(to bottom,transparent 0%,rgba\(0,0,0,\.72\) 9%,#000 20%,#000 100%\);\s*mask-image:linear-gradient\(to bottom,transparent 0%,rgba\(0,0,0,\.72\) 9%,#000 20%,#000 100%\);/,'Soft top dissolve applies only to foreground action cutout, not headshot fallback');
 // On small phones a slide is twice viewport width. The anchor copy starts
 // at 26.5% of that slide (53% of viewport); both anchor photo variants must
 // track that line instead of the retired 58% position.
 assert.match(timeline,/\.zt-anchor \.zt-copy \{ left:26\.5%; width:23%; \}/,'Small-phone anchor headline uses the shared 53% screen boundary');
-assert.match(timeline,/left:calc\(53% - 24px - 800px\)/,'Mobile action photo follows the shifted headline');
+assert.match(timeline,/\.zt-person-stack :global\(\.zt-person-now\) \{[^\n]*left:calc\(53% - 34px - 800px\)/,'Mobile action photo follows the shifted headline');
 assert.match(timeline,/left:calc\(53% - 4px - 800px\)/,'Mobile headshot fallback ends before headline');
 assert.match(timeline,/left:calc\(53% - 4px - clamp\(130px,40cqw,170px\)\)/,'Mobile high-school cutout stays before headline');
 // Transition-band anchor geometry must move as one, not independently.
 assert.match(timeline,/\.zt-anchor \.zt-copy \{left:48%;right:4%;width:auto;\}/,'560-740px anchor headline shifted left');
-assert.match(timeline,/left:calc\(48% - 24px - 800px\)/,'560-740px action photo clears headline');
+assert.match(timeline,/\.zt-person-stack :global\(\.zt-person-now\) \{\s*left:calc\(48% - 34px - 800px\)/,'560-740px action photo clears headline');
 assert.match(timeline,/left:calc\(48% - 4px - 800px\)/,'560-740px fallback headshot clears headline');
 assert.match(timeline,/left:calc\(48% - 4px - clamp\(170px,30cqw,220px\)\)/,'560-740px high-school cutout clears headline');
 // Only anchor copy moves vertically on narrow phones; timeline icons stay

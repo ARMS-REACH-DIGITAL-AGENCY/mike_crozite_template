@@ -2692,7 +2692,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
            it (rendered after it, same z-index). Chosen by direct
            comparison of the previews: an action shot's RIGHT edge (the
            player's own right edge -- /api/cutout trims it, after fading
-           out a card-back photo's left third) is pinned 24px past the
+           out a card-back photo's left third) is pinned 34px before the
            headline column's left edge, and it grows leftward over the HS
            cutout (object-position:right bottom in a box that ends
            there). The headshot fallback's own rule below puts it flush on
@@ -3184,7 +3184,7 @@ export default function ZoomableCareerTimeline({ playerId, photoId, variant = 'c
           .zt-person-stack :global(.zt-person-yati[data-fallback="true"][src*="/players/season-photos/"]) { width:calc(58% - 8px); }
           /* Anchor action photo and fallback headshot track the same 53%-of-real-
              screen text boundary as the widened anchor copy. Action shots
-             retain their 24px magazine overlap; fallback headshots end
+             retain their 34px clearance from the headline; fallback headshots end
              4px short of the headline, rather than sitting under text.
              Both remain at 48% height and 8px above the rail. */
           /* width/object-position restated for the same reason as the
