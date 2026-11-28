@@ -24,3 +24,5 @@ require('../src/lib/nextGameLine.test.ts');
 require('./newsletter-season-line.test.ts');
 
 require('../src/lib/newsletter/recipientDirectory.test.ts');
+
+require('../src/lib/newsletter/rehearsalDeliveryGuard.test.ts');

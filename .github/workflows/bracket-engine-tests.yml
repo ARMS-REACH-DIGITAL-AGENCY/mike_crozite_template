@@ -20,6 +20,8 @@ on:
       - scripts/test-bracket-game-eligibility.cjs
       - scripts/newsletter-publish.ts
       - scripts/test-newsletter-production.cjs
+      - src/lib/newsletter/**
+      - src/app/api/admin/rehearsal-newsletter-delivery/route.ts
       - src/lib/bracket/scheduleAuthority.ts
       - src/app/api/bracket/live/route.ts
       - src/lib/bracket/resultsJob.ts
@@ -46,6 +48,8 @@ on:
       - scripts/test-bracket-game-eligibility.cjs
       - scripts/newsletter-publish.ts
       - scripts/test-newsletter-production.cjs
+      - src/lib/newsletter/**
+      - src/app/api/admin/rehearsal-newsletter-delivery/route.ts
       - src/lib/bracket/scheduleAuthority.ts
       - src/app/api/bracket/live/route.ts
       - src/lib/bracket/resultsJob.ts
