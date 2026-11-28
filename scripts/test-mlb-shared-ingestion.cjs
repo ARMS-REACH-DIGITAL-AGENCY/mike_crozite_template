@@ -153,8 +153,8 @@ function database(window = { start: '08:30:00', stop: '00:10:00', active: true }
   const [excludedSchedule] = JSON.parse(excludedDb.calls.find(c => c.sql.includes('insert into public.team_schedules')).params[0]);
   assert.equal(excludedRaw.gameType, 'S');
   assert.equal(excludedSchedule.game_type, 'S');
-  assert.equal(isBracketGameType(excludedRaw.gameType), false, 'Existing player-line eligibility can recognize newly ingested preseason games');
-  assert.equal(isBracketGameType(excludedSchedule.game_type), false, 'Existing schedule eligibility cannot reintroduce their club result');
+  assert.equal(isBracketGameType(excludedRaw.gameType), true, 'Spring training player lines must count in fantasy');
+  assert.equal(isBracketGameType(excludedSchedule.game_type), true, 'Spring training games are eligible for fantasy schedule and club results');
   assert.equal(rows.find(r => r.game_pk === 90002).level, 'MLB', 'Existing AFL classification is preserved');
   assert.equal(scheduleWrite.params[1], EFFECTIVE);
   const retirement = scheduleDb.calls.find(c => c.sql.includes("set status = 'Not Necessary'"));

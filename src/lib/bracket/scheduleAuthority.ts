@@ -6,11 +6,12 @@ const text = (value: unknown) => String(value ?? '').trim();
 export const isBracketGameDone = (status: unknown) =>
   /^(final|game over|completed|postponed|cancelled|canceled|suspended|not necessary)/i.test(text(status));
 export const isBracketGameFinal = (status: unknown) => /^(final|game over|completed)/i.test(text(status));
-// The schedule includes spring training, exhibitions, intrasquad and All-Star
-// games; the player game-log feed excludes them. Apply the same distinction
-// to club results and completion checks. A missing type is still allowed for
-// older records and non-MLB sources that do not use MLB's gameType codes.
-export const isBracketGameType = (gameType: unknown) => !/^(S|E|I|A)$/i.test(text(gameType));
+// Fantasy rule (Pete, Nov 27 2026): spring training (S) and exhibition
+// games (E) count inside the tournament calendar, including actual club
+// outcomes and batting/pitching. This is NOT the official career or
+// regular-season statistics filter. Intrasquad and All-Star remain excluded.
+// Missing types remain supported for older and non-MLB sources.
+export const isBracketGameType = (gameType: unknown) => !/^(I|A)$/i.test(text(gameType));
 
 export function missingScheduleGameIds(sourceIds: readonly string[], scheduleIds: readonly string[]): string[] {
   const known = new Set(scheduleIds);
