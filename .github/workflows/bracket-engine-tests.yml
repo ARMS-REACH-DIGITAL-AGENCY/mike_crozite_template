@@ -84,6 +84,7 @@ jobs:
           node scripts/test-bracket-daily-club-totals.cjs
           node scripts/test-mlb-shared-ingestion.cjs
           node scripts/test-bracket-game-eligibility.cjs
+          node scripts/test-newsletter-production.cjs
           node scripts/test-rehearsal-mlb-source.cjs
           node scripts/test-rehearsal-resume.cjs
           node scripts/test-rehearsal-checkpoint-lock.cjs
