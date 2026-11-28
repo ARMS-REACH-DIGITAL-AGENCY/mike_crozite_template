@@ -222,7 +222,7 @@ be undone, and nothing merges without Pete's approval.
 | 6 | Photos to YAT-ID names | Copy each file (keep the originals); photo records (`media_upload`, `player_photos`) switch to YAT IDs in the same step; uploads and cutout jobs write YAT names; site reads YAT names | Spot check + counts | Readers back to old names | Done, LIVE Nov 19 (Claude): #838; 80 `media_upload` rows re-pointed; hourly catch-up still on (retire with Pete's OK); old-number files kept in S3 |
 | 7 | Bracket on YAT IDs | Roster/stat tuples | Exact before-and-after scoring match | Revert | Done Nov 18 (Claude): rosters and game lines on YAT IDs since Nov 13 (`d6efcbb3`); October test season line-for-line match, 0 differences (Pete: enough). Results job club lookup still goes through the TBC number: moves with step 9 |
 | 8 | Card key change | `flip_card_front_stage` keyed by YAT ID alone (one card per person); `player_hsids` (already the player-to-school list) re-keyed to the YAT ID decides which school pages show it (decision 1) | Full test copy | Restore | Done Nov 19 (Claude): one card per person enforced (unique `yatid`, #839); school chapters and full career timeline live (#839); nightly TBC job checks cards by YAT ID (#840) |
-| 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | In progress (Claude, Nov 19): part 1, MLB jobs read the YAT Registry (`yat_mlb_links`), branch `yat/step9-mlb-registry`; next: site code, then the build guard |
+| 9 | Retire the old key | The old number stays only as a source reference. Build guard: no new joins on it in group C. | Build | Revert | Part 1 merged in #841, Nov 19. In progress (ChatGPT, `test/2026-production-parity-20261121`): isolated newsletter favorites view exposes the existing `yatid`; remaining retirement work stays open. |
 
 ---
 
@@ -231,12 +231,22 @@ be undone, and nothing merges without Pete's approval.
 Each agent adds an entry when it starts or stops: date and time (UTC), agent,
 step, branch, what was done, what is next.
 
-* 2026-11-22 17:38 UTC, ChatGPT: scoped transaction-news follow-up on
-  `fix/player-transaction-news-20261122`, from production `60d58c87`.
-  News publication and all three readers use canonical YAT identity and
-  school links. Testing on Neon `qa-player-transaction-news-20261122`
-  (`br-winter-voice-a4ghbyns`); publication is independent of fan alerts.
-  Details and verification: `docs/transaction-news-20261122.md`.
+* 2026-11-22 UTC (Nov 21 Arizona), ChatGPT: step 9 newsletter reader
+  follow-up, `test/2026-production-parity-20261121`, PR #862. The prior
+  owner branch `yat/step9-mlb-registry` is closed and merged (#841,
+  Nov 19 16:35 UTC). The recovered newsletter contract requires canonical
+  YAT favorites. Read-only checks on fresh isolated branch
+  `br-flat-sun-a4ekggjz` found the existing view selects only
+  `firebase_uid,playerid`: Pete has 99 favorites, all 99 already have valid
+  `user_favorites.yatid`, but only 8 legacy-named `playerid` values are YAT
+  strings. Appended the existing `yatid` column to that view on the isolated
+  copy. Read-back verified 99 rows, 99 distinct registered YAT IDs, zero
+  invalid IDs, and the newsletter role's SELECT grant still present. No
+  identity remapping or old-ID join was added. The finished-reader regression
+  suite checks YAT-only selection and rejects missing identities. Next:
+  verify the first actual Digest after the separate Vercel test-connection
+  approval; its automatic approval review currently blocks credential
+  transfer. No production database change or migration merge was performed.
 
 * 2026-11-18, Claude: step 0 done. Map built from read-only queries and a repo
   search. Waiting on Pete: decisions in section 2, approval for steps 0b and 1.

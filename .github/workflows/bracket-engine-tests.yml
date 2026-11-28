@@ -17,6 +17,13 @@ on:
       - scripts/test-bracket-daily-club-totals.cjs
       - scripts/bracket-results-job.test.ts
       - scripts/test-mlb-shared-ingestion.cjs
+      - scripts/test-rehearsal-mlb-source.cjs
+      - scripts/test-rehearsal-resume.cjs
+      - scripts/test-rehearsal-checkpoint-lock.cjs
+      - scripts/lib/rehearsal-mlb-source.ts
+      - scripts/lib/rehearsal-resume.ts
+      - scripts/lib/rehearsal-checkpoint-lock.ts
+      - scripts/rehearse-production-bracket.ts
       - src/lib/bracket/resultsJob.ts
       - src/lib/mlb/**
       - src/app/api/cron/bracket-results/route.ts
@@ -38,6 +45,13 @@ on:
       - scripts/test-bracket-daily-club-totals.cjs
       - scripts/bracket-results-job.test.ts
       - scripts/test-mlb-shared-ingestion.cjs
+      - scripts/test-rehearsal-mlb-source.cjs
+      - scripts/test-rehearsal-resume.cjs
+      - scripts/test-rehearsal-checkpoint-lock.cjs
+      - scripts/lib/rehearsal-mlb-source.ts
+      - scripts/lib/rehearsal-resume.ts
+      - scripts/lib/rehearsal-checkpoint-lock.ts
+      - scripts/rehearse-production-bracket.ts
       - src/lib/bracket/resultsJob.ts
       - src/lib/mlb/**
       - src/app/api/cron/bracket-results/route.ts
@@ -69,3 +83,6 @@ jobs:
           npx tsx --test src/lib/bracket/engine.test.ts src/lib/bracket/sweepstakesEntries.test.ts scripts/master-bracket-clock.test.ts scripts/master-bracket-national-seeding.test.ts scripts/master-bracket-team-check.test.ts scripts/bracket-results-job.test.ts
           node scripts/test-bracket-daily-club-totals.cjs
           node scripts/test-mlb-shared-ingestion.cjs
+          node scripts/test-rehearsal-mlb-source.cjs
+          node scripts/test-rehearsal-resume.cjs
+          node scripts/test-rehearsal-checkpoint-lock.cjs

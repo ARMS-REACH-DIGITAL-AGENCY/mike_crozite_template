@@ -2,6 +2,22 @@
 
 Production branch: `Easter-NEWS`. This file is authoritative for work on this repository, not any chat's memory.
 
+## 2026 rehearsal continuity
+
+For `test/2026-production-parity-20261121` / draft PR #862, read
+[`docs/2026-rehearsal-handoff.md`](docs/2026-rehearsal-handoff.md) before resuming.
+Use the saved checkpoint in the authorized QA database to determine the current
+day. This rehearsal branch must never be merged or promoted into `Easter-NEWS`.
+
+## Durable work and handoffs (Pete, Nov 25 2026)
+
+- Nothing important may live only in an agent's sandbox. After every fix and at the end of every work session, commit and push all intentional source, script, test, and documentation changes. Do not leave a local-only fix.
+- Shared/production changes: one scoped branch starting at current `Easter-NEWS`, with a PR for Pete's explicit approval. Never merge a rehearsal branch into production.
+- Test-only rehearsal changes: commit and push to `test/2026-production-parity-20261121` (PR #862). Maintain stored results, original simulation path, and QA isolation.
+- For newsletter/bracket work, update `docs/handoffs/NEWSLETTER-BRACKET-HANDOFF.md` with the latest verified saved simulation date, what was processed, audit status, exact blocker if any, review links, and next authorized step. Also keep `docs/2026-rehearsal-handoff.md` current on the test branch. The QA database, not this document or a local log, is the authoritative checkpoint.
+- Before reporting completion or a blocker, verify the remote branch heads and report every branch name, commit SHA, PR and relevant deployment/check status. Distinguish committed, tested, deployed, audited and approved. No claims of completion based on a local commit.
+- Never commit credentials, secret-bearing connection files, private fan data, raw private exports, build caches, generated local artifacts or logs containing secrets. Record secure configuration names and reproducible recovery commands instead. A generated build artifact is not an intentional source change.
+
 ## Before doing anything
 1. Read this file, the current production HEAD, the relevant code, existing tests and active PRs.
 2. State the task scope and associated branch/PR. If the user's new request concerns a different area than the branch (e.g. News in a Bracket branch), **stop that branch's work**; ask whether to switch to a new task/branch. Never silently expand scope.
