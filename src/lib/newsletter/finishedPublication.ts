@@ -250,7 +250,7 @@ function nextGame(row: Row): string | undefined {
 }
 
 /** Deterministic layout of an immutable edition. Never reads or writes data. */
-export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl?: string } = {}): RenderedEdition {
+export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl?: string; simulation?: boolean; imageEnv?: Record<string,string|undefined> } = {}): RenderedEdition {
   const facts = clone(input), { ready, recipient, rows } = facts;
   if (options.baseUrl) {
     const url = new URL(options.baseUrl);
@@ -275,7 +275,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
   if (!school) throw new Error('The finished edition has no home school display name');
   const title = cadence === 'daily' ? 'YAT?STATS Daily Digest' : 'YAT-A-BOY Weekly Gazette';
   const period = labelDate(iso(ready.period_start)) + (cadence === 'weekly' ? ' – ' + labelDate(iso(ready.period_end)) : '');
-  const subject = (title + ' | ' + school.replace(/\n/g, ' ') + ' | ' + period).replace(/[\r\n]+/g, ' ');
+  const subject = ((options.simulation ? '[SIMULATION TEST] ' : '') + title + ' | ' + school.replace(/\n/g, ' ') + ' | ' + period).replace(/[\r\n]+/g, ' ');
   const body: string[] = [], plain: string[] = [title.toUpperCase(), school, period];
   let dailyLayout: { html: string; text: string } | undefined;
   let gazetteLayout: { html: string; text: string } | undefined;
@@ -307,8 +307,8 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
       // The board picture, drawn once per school per day by
       // src/lib/newsletter/newsletterImages.ts (the 4 a.m. job; scripts/newsletter-draw-pictures.ts locally) (Pete's Nov 13 Gazette design).
       // The live asset bucket unless the environment names another copy (newsletterImageBase).
-      scoreboardImage: newsletterImageBase('board') && scores.slots.length
-        ? `${newsletterImageBase('board')}/${iso(ready.period_start)}/${Number(recipient.home_hsid)}.png` : undefined,
+      scoreboardImage: newsletterImageBase('board', options.imageEnv) && scores.slots.length
+        ? `${newsletterImageBase('board', options.imageEnv)}/${iso(ready.period_start)}/${Number(recipient.home_hsid)}.png` : undefined,
       // The approved masthead logo is served by the site itself (public/img/newsletter).
       presentation: { mastheadLogo: link ? new URL('/img/newsletter/daily-digest-logo.png', link).toString() : undefined, ...presentation, links: { home: section('sec-active'), favorites: section('sec-active'),
         scoreboard: section('sec-fantasy'), ...presentation.links } },
@@ -329,9 +329,9 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     // Sunday) come from the saved images unless the facts name others (Pete,
     // Nov 25 2026: the Week 4 TEST 2 proof).
     const homeHsid = Number(recipient.home_hsid);
-    const bannerBase = newsletterImageBase('banner'), boardBase = newsletterImageBase('board');
-    const madnessBase = newsletterImageBase('bracket');
-    const leadersBase = newsletterImageBase('leaders');
+    const bannerBase = newsletterImageBase('banner', options.imageEnv), boardBase = newsletterImageBase('board', options.imageEnv);
+    const madnessBase = newsletterImageBase('bracket', options.imageEnv);
+    const leadersBase = newsletterImageBase('leaders', options.imageEnv);
     const gz: NonNullable<NonNullable<FinishedEdition['presentation']>['gazette']> = {
       mastheadUrl: bannerBase ? `${bannerBase}/${homeHsid}.png` : undefined,
       scoreboardUrl: boardBase ? `${boardBase}/${iso(ready.period_end)}/${homeHsid}.png` : undefined,
@@ -340,7 +340,7 @@ export function renderFinishedEdition(input: FinishedEdition, options: { baseUrl
     };
     // Team logos: small PNGs drawn once per week by src/lib/newsletter/newsletterImages.ts
     // (email clients cannot all show the site's WebP art), unless the facts name a base.
-    const logoBase = newsletterImageBase('logo');
+    const logoBase = newsletterImageBase('logo', options.imageEnv);
     const logo = (teamid: unknown) => (!/^\d{1,10}$/.test(String(teamid ?? '')) ? undefined
       : gz.teamLogoBase ? gz.teamLogoBase + String(teamid) : logoBase ? `${logoBase}/${String(teamid)}.png` : undefined);
     const favoriteIds = new Set(facts.selection.favorites);

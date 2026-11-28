@@ -246,3 +246,18 @@ test('duplicate account mailbox receives one edition even under concurrent case-
   assert.equal((await deliverNewsletterEdition(opted.pool,edition(),transport)).status,'not_subscribed');
   assert.equal(opted.state.claims.size,0);
 });
+
+
+test('isolated delivery reads current live opt-outs and controls; only the QA pool claims mail',async()=>{
+  const qa=deliveryDatabase(),live=deliveryDatabase();
+  qa.state.control.enabled=false; qa.state.pref!.subscribed=false;
+  let sends=0;
+  const transport={domainVerified:true,lookupContact:async()=> 'contact',send:async()=>{sends++;return true;}};
+  live.state.pref!.subscribed=false;
+  assert.equal((await deliverNewsletterEdition(qa.pool,edition(),transport,live.pool)).status,'not_subscribed');
+  assert.equal(sends,0);
+  live.state.pref!.subscribed=true;
+  assert.equal((await deliverNewsletterEdition(qa.pool,edition(),transport,live.pool)).status,'queued');
+  assert.equal(sends,1);assert.equal(qa.state.claims.size,1);assert.equal(live.state.claims.size,0);
+  assert.ok(live.state.calls.every(sql=>sql.startsWith('SELECT')));
+});
