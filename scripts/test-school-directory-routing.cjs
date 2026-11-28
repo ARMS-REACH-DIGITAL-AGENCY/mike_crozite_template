@@ -29,6 +29,7 @@ const schools=[
   {hsid:'112',name_slug:'lincoln',city_slug:'los-angeles',regionid:'CA',existing:null,same_state_name_count:2,same_name_city_count:1},
   {hsid:'887',name_slug:'hillsboro',city_slug:'hillsboro',regionid:'OR',existing:null,same_state_name_count:1,same_name_city_count:1},
   {hsid:'2122',name_slug:'st-francis',city_slug:'mountain-view',regionid:'CA',existing:'https://st-francis.mountain-view.ca.yatstats.com',same_state_name_count:3,same_name_city_count:1},
+  {hsid:'19603',name_slug:'boswell',city_slug:'boswell',regionid:'OK',existing:'https://boswell.ok.yatstats.com',same_state_name_count:1,same_name_city_count:1},
 ];
 const query=async (sql,params=[])=>{
   if(sql.includes('same_name_city_count'))
@@ -61,6 +62,15 @@ const query=async (sql,params=[])=>{
   assert.equal(urls.get('887'),'https://hillsboro.or.yatstats.com', 'A unique school never acquires a city label even when the base URL is already claimed.');
   const curated=await routing.canonicalSchoolUrls(['2122'],query);
   assert.equal(curated.get('2122'),'https://st-francis.mountain-view.ca.yatstats.com','Verified curated same-name city host wins.');
+
+  const newSourceSchool=await routing.canonicalSchoolUrls(['19603'],async(sql,params)=>{
+    assert.ok(sql.includes('FROM public.school_success s'),'Canonical school source must include new-school registry rows');
+    assert.ok(sql.includes('NOT EXISTS (SELECT 1 FROM public.tbc_schools_raw t'),'Do not duplicate legacy TBC school rows');
+    return query(sql,params);
+  });
+  assert.equal(newSourceSchool.get('19603'),'https://boswell.ok.yatstats.com',
+    'New school with a YAT flip card must retain its canonical URL in player search');
+
   // Invalid and oversized IDs must remain no-match inputs, never PostgreSQL
   // integer-cast errors or a reason to run the expensive player-link lookup.
   let invalidCalls=0;

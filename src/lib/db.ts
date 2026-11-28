@@ -792,6 +792,26 @@ export const getAllTimeRosterByHsid = cache(keptAcrossRequests('getAllTimeRoster
           SELECT 1 FROM public.tbc_players_raw tp
           WHERE tp.playerid::text = f.playerid::text
         )
+
+      UNION ALL
+      -- Canonical YAT cards with exact TBC source IDs can belong to schools
+      -- not yet present in the older TBC school export. Include their real
+      -- TBC identity so All-Time career-stat aggregates still resolve.
+      SELECT ids.source_id AS playerid,
+        f.first_name AS firstname,
+        f.last_name AS lastname,
+        COALESCE(NULLIF(f.highest_level_label, ''), f.level_label) AS career_highlevel,
+        tp.ht AS height, tp.wt AS weight, tp.bats, tp.throws,
+        f.position
+      FROM public.flip_card_front_stage f
+      JOIN public.yat_registry_ids ids
+        ON ids.yatid = f.yatid AND ids.source = 'tbc'
+      JOIN public.tbc_players_raw tp ON tp.playerid = ids.source_id
+      WHERE ${scope === 'school' ? 'f.hsid::text = $1::text' : '(ids.source_id = $1::text OR f.yatid = $1::text)'}
+        AND NOT EXISTS (
+          SELECT 1 FROM public.player_hsids ph
+          WHERE ph.playerid::text = ids.source_id AND ph.hsid::text = f.hsid
+        )
     ),
 
     latest_batting_level AS (

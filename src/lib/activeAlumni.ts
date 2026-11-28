@@ -60,6 +60,13 @@ export function activeAlumniCtes(scopeSql: string): string {
   return `linked_alumni AS MATERIALIZED (
       SELECT DISTINCT ph.hsid, ph.playerid::text AS playerid
       FROM public.player_hsids ph WHERE ph.hsid IN (${scopeSql})
+      UNION
+      -- Registered cards at schools absent from the TBC school reference
+      -- still resolve by their *exact* canonical source ID, not by name.
+      SELECT DISTINCT f.hsid::int AS hsid, ids.source_id::text AS playerid
+      FROM public.flip_card_front_stage f
+      JOIN public.yat_registry_ids ids ON ids.yatid=f.yatid AND ids.source='tbc'
+      WHERE f.hsid ~ '^[1-9][0-9]*$' AND f.hsid::int IN (${scopeSql})
     ), active_stat_playerids AS MATERIALIZED (${ACTIVE_STAT_PLAYER_IDS_SQL}),
     confirmed_game_log_players AS MATERIALIZED (${confirmed2026GameLogPlayersSql('SELECT playerid FROM linked_alumni')}),
     active_alumni AS MATERIALIZED (
