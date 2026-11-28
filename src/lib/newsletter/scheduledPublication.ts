@@ -68,7 +68,7 @@ export async function publishNewsletterDay(pool: Pool, opts: NewsletterDayOption
 
 /** The live sender and rehearsal archive use the same finished-row reader. */
 export async function readNewsletterReview(pool: Pool, request: {
-  cadence: Cadence; date: string; email: string; seasonKey: string; baseUrl?: string; firebaseUid?: string; reviewBaseUrl?: string;
+  cadence: Cadence; date: string; email: string; seasonKey: string; baseUrl?: string; firebaseUid?: string; reviewBaseUrl?: string; simulation?: boolean; imageEnv?: Record<string,string|undefined>;
 }, loadPreferences?: NewsletterPreferenceLoader) {
   const db = await pool.connect();
   try {
@@ -86,7 +86,7 @@ export async function readNewsletterReview(pool: Pool, request: {
       );
       baseUrl = school?.microsite_url || undefined;
     }
-    const rendered = renderFinishedEdition(facts, baseUrl ? { baseUrl } : {});
+    const rendered = renderFinishedEdition(facts, { baseUrl, simulation: request.simulation, imageEnv: request.imageEnv });
     await db.query('COMMIT');
     return rendered;
   } catch (error) {
@@ -104,7 +104,7 @@ export type NewsletterDelivery = {
 };
 
 /** Existing send approval, recipient preference and claim gates remain final. */
-export async function deliverNewsletterEdition(pool: Pool, edition: RenderedEdition, delivery: NewsletterDelivery) {
+export async function deliverNewsletterEdition(pool: Pool, edition: RenderedEdition, delivery: NewsletterDelivery, preferencePool: Pool = pool) {
   const email = String(edition.facts.recipient.email).trim().toLowerCase();
   const cadence = edition.facts.ready.cadence as Cadence;
   if (!['daily', 'weekly'].includes(cadence)) throw new Error('Unsupported newsletter delivery cadence');
@@ -115,11 +115,11 @@ export async function deliverNewsletterEdition(pool: Pool, edition: RenderedEdit
   // Every registered Fan and SuperFan was promised both the Daily Digest and the
   // Weekly Gazette (Pete, Nov 25 2026): no preference row means both, as HTML. A row
   // keeps its format; a row marked unsubscribed stops both (an unsubscribe is honored).
-  const { rows: recipients } = await pool.query<{ firebase_uid: string }>(
+  const { rows: recipients } = await preferencePool.query<{ firebase_uid: string }>(
     'SELECT firebase_uid FROM public.newsletter_recipients WHERE lower(btrim(email))=$1', [email],
   );
   if (!recipients.length) return { email, cadence, status: 'not_a_registered_fan' };
-  const { rows: preferences } = await pool.query<{ cadence: string; format: string; subscribed: boolean }>(
+  const { rows: preferences } = await preferencePool.query<{ cadence: string; format: string; subscribed: boolean }>(
     'SELECT cadence,format,subscribed FROM public.alumni_newsletter_preferences WHERE firebase_uid=ANY($1::text[]) ORDER BY firebase_uid', [recipients.map(row => row.firebase_uid)],
   );
   // An opt-out on any linked account applies to the mailbox. Never bypass it
@@ -127,7 +127,7 @@ export async function deliverNewsletterEdition(pool: Pool, edition: RenderedEdit
   if (preferences.some(row => !row.subscribed)) return { email, cadence, status: 'not_subscribed' };
   const pref = { format: preferences.some(row => row.format === 'text') ? 'text' : preferences[0]?.format || 'html' };
   if (!['html', 'text'].includes(pref.format)) return { email, cadence, status: 'unsupported_format' };
-  const { rows: controls } = await pool.query<{ enabled: boolean; approved_layout_version: string | null }>(
+  const { rows: controls } = await preferencePool.query<{ enabled: boolean; approved_layout_version: string | null }>(
     'SELECT enabled,approved_layout_version FROM public.alumni_newsletter_control',
   );
   // The send switch approves each layout by name; several may be approved at once

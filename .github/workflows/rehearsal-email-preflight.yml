@@ -1,0 +1,31 @@
+# No-send preflight uses only the existing authorized GitHub rehearsal token.
+name: Rehearsal email sender preflight
+on:
+  push:
+    branches: [test/2026-production-parity-20261121]
+    paths: [.github/workflows/rehearsal-email-preflight.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/test/2026-production-parity-20261121'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify existing server-side sender without sending email
+        env:
+          REHEARSAL_LIVE_FAN_TOKEN: ${{ secrets.REHEARSAL_LIVE_FAN_TOKEN }}
+        run: |
+          node --input-type=module <<'NODE'
+          const token=process.env.REHEARSAL_LIVE_FAN_TOKEN;
+          if(!token||token.length<32)throw Error('Existing rehearsal token is unavailable');
+          const r=await fetch('https://hamilton.az.yatstats.com/api/admin/rehearsal-newsletter-delivery',{
+            method:'POST',redirect:'error',headers:{authorization:'Bearer '+token,'content-type':'application/json'},
+            body:JSON.stringify({action:'preflight'}),signal:AbortSignal.timeout(110000)});
+          const d=await r.json().catch(()=>null);
+          const error=typeof d?.error==='string'&&/^[a-z_]{1,80}$/.test(d.error)?d.error:'unexpected_response';
+          if(r.status!==200||!d?.ok||d.approved!==30||d.excluded!==9||d.contactLookupVerified!==true||d.emailsSent!==0)
+            throw Error('Sender preflight failed: HTTP '+r.status+' '+error);
+          console.log(JSON.stringify({sender:d.sender,approved:d.approved,excluded:d.excluded,enabled:d.enabled,contactLookupVerified:true,emailsSent:0}));
+          NODE

@@ -11,7 +11,9 @@
 # Secrets (Settings -> Secrets and variables -> Actions -> New repository secret):
 #   QA_DATABASE_URL, QA_PLAYERS_DATABASE_URL (same value), QA_NEON_BRANCH,
 #   QA_NEON_ENDPOINT, REHEARSAL_LIVE_FAN_TOKEN (same as Vercel production).
-#   No new password. Personalized proofs remain in the isolated QA database; public artifacts contain only aggregate audits.
+#   No new password. The existing production Vercel endpoint calls HighLevel.
+#   Forward-only owner-approved recipients, live opt-outs, QA claims, no backfill.
+#   Personalized proofs remain in the isolated QA database; artifacts contain only aggregate audits.
 name: Run rehearsal days
 
 on:
@@ -21,7 +23,9 @@ on:
 
 concurrency:
   group: rehearsal-days
-  cancel-in-progress: false
+  # Only an explicit handover commit can stop an older review-only run. The
+  # persisted day checkpoint handles partial-day resumes without resetting scores.
+  cancel-in-progress: ${{ contains(github.event.head_commit.message, '[resume-with-email]') }}
 
 permissions:
   contents: write
@@ -102,6 +106,7 @@ jobs:
           git config user.email "rehearsal-bot@users.noreply.github.com"
           git worktree add pics-wt "origin/$PICTURE_BRANCH"
           mkdir -p out reports
+          node scripts/rehearsal-email-delivery.cjs activate
           checkpoint() {
             node -e '
               const { Pool } = require("pg");
@@ -134,7 +139,7 @@ jobs:
               DAY=$LAST; REVIEWED=$(date -u -d "$LAST - 1 day" +%F)   # finish a day that stopped part-way
             fi
             if [[ "$DAY" > "$THROUGH" ]]; then
-              echo "Done: checkpoint $LAST ($PHASE), target $THROUGH; generating all-fan proofs if not already built"
+              echo "Done: checkpoint $LAST ($PHASE), target $THROUGH; review proofs only, never backfill emails"
               if [ ! -f "private/$THROUGH/summary.json" ]; then build_proofs "$THROUGH" || echo '::warning::Newsletter proofs unavailable; completed scores preserved'; fi
               break
             fi
@@ -149,9 +154,10 @@ jobs:
             WEEKS=$(( ( $(date -u -d "$DAY + 1 day" +%s) - $(date -u -d "$OPENING" +%s) ) / 604800 ))
             npx tsx scripts/audit-production-rehearsal.ts --expected-branch "$REHEARSAL_NEON_BRANCH" --season "$SEASON" \
               --through-week "$WEEKS" --now "$(date -u -d "$DAY + 1 day" +%F)T11:00:00Z" --report "reports/audit-$DAY.json"
-            if ! build_proofs "$DAY"; then echo '::warning::Newsletter proofs failed after scoring; completed scores preserved'; fi
+            if ! build_proofs "$DAY"; then echo '::error::Newsletter proofs failed after scoring; completed scores preserved'; exit 1; fi
+            node scripts/rehearsal-email-delivery.cjs send "$DAY"
             echo "::endgroup::"
-            echo "Day $DAY scoring audit passed; newsletter proof status recorded separately"
+            echo "Day $DAY scoring audit passed; authorized newsletter delivery attempts recorded"
           done
 
       - name: Keep scoring audits and aggregate proof counts

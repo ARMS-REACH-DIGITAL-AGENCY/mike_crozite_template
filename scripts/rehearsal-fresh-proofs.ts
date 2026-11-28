@@ -1,5 +1,6 @@
 // TEST ONLY: same production reader, live recipient directory and preferences.
-// Never import the delivery function or write to production data. Archive proofs only in verified isolated QA.
+// Archive proofs only in verified isolated QA. Actual sends are invoked separately
+// by rehearsal-email-delivery.cjs after the independent audit; no production writes.
 import { Pool } from 'pg';
 import { mkdirSync,writeFileSync,readFileSync } from 'node:fs';
 import { join } from 'node:path';
