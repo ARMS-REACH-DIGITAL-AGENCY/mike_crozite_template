@@ -83,6 +83,7 @@ jobs:
           npx tsx --test src/lib/bracket/engine.test.ts src/lib/bracket/sweepstakesEntries.test.ts scripts/master-bracket-clock.test.ts scripts/master-bracket-national-seeding.test.ts scripts/master-bracket-team-check.test.ts scripts/bracket-results-job.test.ts
           node scripts/test-bracket-daily-club-totals.cjs
           node scripts/test-mlb-shared-ingestion.cjs
+          node scripts/test-bracket-game-eligibility.cjs
           node scripts/test-rehearsal-mlb-source.cjs
           node scripts/test-rehearsal-resume.cjs
           node scripts/test-rehearsal-checkpoint-lock.cjs
