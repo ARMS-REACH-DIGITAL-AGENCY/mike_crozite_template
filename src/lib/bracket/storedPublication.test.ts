@@ -4,6 +4,7 @@ import type { GameBox } from '@/components/bracket/gallery';
 import { dailyFromStored, weeklyFromStored, requireStoredBoundary, assertStoredCountingStats, type StoredBracketGame } from './storedPublication';
 import { buildNewsletterPublication, publishDaily, type Row, type Season, type InLine } from '../../../scripts/newsletter-publish';
 import type { Pool, PoolClient } from 'pg';
+import { bracketGameTypeSql, isBracketGameType } from './scheduleAuthority';
 
 function fixture(): StoredBracketGame {
   const box: GameBox = {
@@ -226,4 +227,25 @@ isolatedPublicationTest('a ready edition retries from exact saved row counts wit
   await assert.rejects(publishDaily(pool,opts),/incomplete daily_game_stories/);
   assert.ok(calls.includes('ROLLBACK'));
   assert.ok(!calls.includes('COMMIT'));
+});
+
+// March 23–24 replay: preseason statistics remain in the source archive,
+// but the scorer and every publication query must apply the same eligibility.
+test('newsletter SQL shares the scorer game-type policy and schedule veto', () => {
+  for (const value of ['S', 'E', 'I', 'A', ' s ']) assert.equal(isBracketGameType(value), false);
+  for (const value of ['R', 'F', 'D', 'L', 'W', 'C', 'P', null, undefined, '', 'college']) assert.equal(isBracketGameType(value), true);
+  const day = '2026-03-23';
+  const row = publicationRow();
+  row.computed_at = '2026-03-24T11:00:00Z';
+  row.innings = Array(18).fill(0); row.home_runs = 0; row.away_runs = 0;
+  row.box!.h.days![0] = [['YAT100867','Home batter','MLB',0,[0,0,0,0,0,0,0,0,0],0,null,null,[0,0],0]];
+  const plan = buildNewsletterPublication({season:publicationSeason, rows:[row], lines:[], date:day, cutoffAt:row.computed_at, historicalReplay:true});
+  const sql = plan.daily.find(s => s.includes('INSERT INTO public.daily_stat_lines'))!;
+  assert.ok(sql.includes(bracketGameTypeSql("g.raw_payload->>'gameType'")));
+  assert.ok(sql.includes(bracketGameTypeSql('t.game_type')));
+  assert.match(sql,/NOT EXISTS\s*\(\s*SELECT 1 FROM public\.team_schedules/);
+  assert.equal(plan.report.daily?.scores,1);
+  assert.equal(plan.facts.scores[0].home_runs,0);
+  const springLine: InLine=['5004','YAT100867','Home batter',day,'b',[4,4,2,0,0,1,0,0,0],'game1','Home club','MLB','MLB','Away club',[1,2,0,0],true];
+  assert.throws(()=>buildNewsletterPublication({season:publicationSeason, rows:[row], lines:[springLine], date:day, cutoffAt:row.computed_at!, historicalReplay:true}), /differs from stored/);
 });
