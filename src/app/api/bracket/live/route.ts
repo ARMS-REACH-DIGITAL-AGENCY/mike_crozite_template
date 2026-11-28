@@ -169,7 +169,12 @@ export async function GET(req: NextRequest) {
         `SELECT DISTINCT ON (yatid, source, source_game_id, stat_type)
                 yatid AS playerid, (game_date::date - $2::date) AS day, stat_type, stats,
                 source_game_id::text AS game, team_name AS team, game_status AS status,
-                raw_payload->'sport'->>'abbreviation' AS level, raw_payload->>'gameType' AS game_type
+                CASE WHEN source = 'mlb_api' AND upper(btrim(coalesce(raw_payload->>'gameType',''))) IN ('S','E')
+                  THEN (SELECT sl.level FROM public.stat_lines sl
+                        WHERE sl.source = player_game_logs.source AND sl.source_line_id = player_game_logs.id::text
+                          AND sl.removed_at IS NULL AND sl.hold_reason IS NULL)
+                  ELSE raw_payload->'sport'->>'abbreviation' END AS level,
+                raw_payload->>'gameType' AS game_type
            FROM player_game_logs
           WHERE yatid = ANY($1::text[]) AND game_date >= $2::date AND game_date < $2::date + $3::int
             AND stat_type IN ('batting', 'pitching')
@@ -269,7 +274,7 @@ export async function GET(req: NextRequest) {
       : { rows: [] as ScheduleFact[] };
     const schedState = scheduleAuthority([...sched, ...otherSchedule], weeks * 7);
     // Keep excluded schedule facts in the authority map so an old or
-    // untyped log cannot reintroduce a preseason result through fallback.
+    // untyped log cannot reintroduce an intrasquad or All-Star result through fallback.
     const lines = logRows.filter(r => isBracketGameType(r.game_type) && schedState.get(r.game)?.eligible !== false).map(r => {
       const st = schedState.get(r.game);
       return [
