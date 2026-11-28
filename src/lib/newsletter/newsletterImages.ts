@@ -87,12 +87,22 @@ async function bracketRows(db: ImageDatabase, season: string): Promise<Row[]> {
  * then, the game on the board included once it is final. A 1-1 series reads 1-1 on
  * the Sunday it was evened, never the 1-0 it was before that game.
  */
-function seriesRecord(bracket: Row[], g: Row, hsid: number, asOf: string): string {
-  if (!g || g.stage !== 'bracket') return '';
-  const over = bracket.filter(r => r.stage === 'bracket' && r.region === g.region && r.round === g.round && r.series_no === g.series_no
-    && Number(r.week) <= Number(g.week) && r.winner_hsid != null && iso(r.game_end_date) <= asOf);
+export function seriesRecord(bracket: Row[], g: Row | undefined, hsid: number, asOf: string): string {
+  // The seven nearby games can include Total Runs competition (region 0).
+  // Those schools also play the same opponent for three weeks. Show the
+  // matchup record without treating it as championship advancement.
+  if (!g || !['bracket', 'total_runs'].includes(g.stage)) return '';
+  const home = Number(g.home_hsid), away = Number(g.away_hsid);
+  if (!home || !away || (hsid !== home && hsid !== away)) return '';
+  const other = hsid === home ? away : home;
+  const over = bracket.filter(r => r.stage === g.stage && Number(r.region) === Number(g.region)
+    && Number(r.round) === Number(g.round) && Number(r.series_no) === Number(g.series_no)
+    && Number(r.week) <= Number(g.week) && r.status === 'final' && iso(r.game_end_date) <= asOf
+    && ((Number(r.home_hsid) === home && Number(r.away_hsid) === away)
+      || (Number(r.home_hsid) === away && Number(r.away_hsid) === home)));
   const w = over.filter(r => Number(r.winner_hsid) === hsid).length;
-  return `${w}-${over.length - w}`;
+  const l = over.filter(r => Number(r.winner_hsid) === other).length;
+  return `${w}-${l}`;
 }
 
 /** The Digest's board for each school (Pete, Nov 24-25 2026): its game, then the 7 closest schools' games. */
@@ -108,7 +118,7 @@ export async function dailyBoardPictures(db: ImageDatabase, o: { date: string; s
   }
   const side = (game: Row, which: 'home' | 'away'): BoardSide => {
     const hsid = Number(game[which + '_hsid']);
-    return { seed: seedOf.get(hsid) ?? null, name: String(game[which + '_label'] ?? ''), series: seriesRecord(bracket, byGame.get([game.week, game.region, game.game_id].join('/'))!, hsid, o.date),
+    return { seed: seedOf.get(hsid) ?? null, name: String(game[which + '_label'] ?? ''), series: seriesRecord(bracket, byGame.get([game.week, game.region, game.game_id].join('/')), hsid, o.date),
       innings: (game[which + '_innings'] || []).map(String), runs: game[which + '_runs'] ?? '' };
   };
   const nearbyOf = new Map<number, number[]>();
